@@ -28,6 +28,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         {
             // Initialisiere die Liste der aktiven Server aus der Datenbank
             await LoadActiveServersFromDatabase();
+            await RegisterModul(nameof(ServerListModule));
         }
 
         public async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -45,6 +46,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         public async Task ActivateAsync(ulong serverId)
         {
             _activeServers.Add(serverId);
+
             // Aktualisiere die Datenbank, um den Server als aktiv zu markieren
             await UpdateServerStatusInDatabase(serverId, true);
         }
@@ -106,6 +108,30 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             };
 
             _databaseService.ExecuteStoredProcedure("UpdateServerStatus", parameters);
+        }
+
+        public Task RegisterModul(string modulename)
+        {
+            MySqlParameter[] parameter = new MySqlParameter[]
+            {
+                new MySqlParameter("@NameModul", modulename)
+            };
+
+            string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
+
+            var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
+
+            if(Modules.Rows == null || Modules.Rows[0][1] != modulename)
+            {
+                Console.WriteLine($"Modul ({modulename}) in DB");
+            }
+            else
+            {
+                string insert = "INSERT INTO discord_module (ModuleName) VALUES (@NameModul)";
+                _databaseService.ExecuteSqlQuery(insert, parameter);
+                Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
+            }
+            return Task.CompletedTask;
         }
     }
 }

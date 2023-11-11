@@ -18,5 +18,6 @@ namespace KaffeBot.Interfaces.Discord
         Task ActivateAsync(ulong serverId); // Aktiviere das Modul für einen bestimmten Server
         Task DeactivateAsync(ulong serverId); // Deaktiviere das Modul für einen bestimmten Server
         bool IsActive(ulong serverId); // Überprüfe, ob das Modul für einen bestimmten Server aktiv ist
+        Task RegisterModul(string modulename); //Regestriere das Modul bei der DB wenn nicht vorhanden.
     }
 }

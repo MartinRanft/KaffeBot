@@ -104,7 +104,7 @@ namespace KaffeBot.Services.Discord
 #if !DEBUG
             string token = _configuration["Discord:Token"];
 #else
-            string token = _configuration["Discord:TestToken"];
+            string token = _configuration["Discord:TestToken"]!;
 #endif
             if(string.IsNullOrWhiteSpace(token))
             {

@@ -65,6 +65,8 @@ namespace KaffeBot.Discord.BotOwner
                 .Build());
 
             _client.SlashCommandExecuted += HandleSlashCommandAsync;
+
+            await RegisterModul(nameof(AiPicToChanel).ToString());
         }
 
         private async Task HandleSlashCommandAsync(SocketSlashCommand command)
@@ -159,6 +161,30 @@ namespace KaffeBot.Discord.BotOwner
         public bool IsActive(ulong serverId)
         {
             return _isActive;
+        }
+
+        public Task RegisterModul(string modulename)
+        {
+            MySqlParameter[] parameter = new MySqlParameter[]
+            {
+                new MySqlParameter("@NameModul", modulename)
+            };
+
+            string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
+
+            var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
+
+            if(Modules.Rows == null || Modules.Rows[0][1] != modulename)
+            {
+                Console.WriteLine($"Modul ({modulename}) in DB");
+            }
+            else
+            {
+                string insert = "INSERT INTO discord_module (ModuleName) VALUES (@NameModul)";
+                _databaseService.ExecuteSqlQuery(insert, parameter);
+                Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
+            }
+            return Task.CompletedTask;
         }
     }
 }
