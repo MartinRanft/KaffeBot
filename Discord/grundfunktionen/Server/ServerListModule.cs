@@ -12,7 +12,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
     {
         private readonly DiscordSocketClient _client;
         private readonly IDatabaseService _databaseService;
-        private HashSet<ulong> _activeServers;
+        private readonly HashSet<ulong> _activeServers;
 
         public bool ShouldExecuteRegularly { get; set; }
 
@@ -65,10 +65,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
         private async Task LoadActiveServersFromDatabase()
         {
-            MySqlParameter[] parameters = new MySqlParameter[]
-            {
-                // Ihre Parameter, falls welche benötigt werden
-            };
+            MySqlParameter[] parameters = Array.Empty<MySqlParameter>();
             var dataTable = _databaseService.ExecuteSqlQuery("SELECT ServerID, ServerName FROM discord_server", parameters);
             foreach(System.Data.DataRow row in dataTable.Rows)
             {

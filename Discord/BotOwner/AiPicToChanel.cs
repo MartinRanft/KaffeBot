@@ -85,7 +85,7 @@ namespace KaffeBot.Discord.BotOwner
         {
             command.DeferAsync(true);
             var user = command.User;
-            HttpClient client = new HttpClient();
+            HttpClient client = new();
             var apiBase = "https://api.bytewizards.de/";
 
             MySqlParameter[] parameter = new MySqlParameter[]
@@ -98,7 +98,7 @@ namespace KaffeBot.Discord.BotOwner
             if (UserData.Rows.Count > 0 && (bool)UserData.Rows[0]["isAdmin"])
             {
                 List<string>? picList = null;
-                using(HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, apiBase + "api/nas/pics"))
+                using(HttpRequestMessage request = new(HttpMethod.Get, apiBase + "api/nas/pics"))
                 {
                     request.Headers.Add("ApiKey", UserData.Rows[0]["ApiKey"].ToString());
                     HttpResponseMessage response = await client.SendAsync(request);
@@ -114,40 +114,34 @@ namespace KaffeBot.Discord.BotOwner
                 }
                 else
                 {
-                    List<FtpDataModel>? data = null;
-                    using(HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, apiBase + "api/nas/getFiles"))
+                    using HttpRequestMessage request = new(HttpMethod.Post, apiBase + "api/nas/getFiles");
+                    request.Headers.Add("ApiKey", UserData.Rows[0]["ApiKey"].ToString());
+                    request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                    string jsonContent = JsonConvert.SerializeObject(picList);
+                    request.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+
+                    HttpResponseMessage response = await client.SendAsync(request);
+
+                    response.EnsureSuccessStatusCode();
+
+                    List<FtpDataModel>? data = await response.Content.ReadFromJsonAsync<List<FtpDataModel>>();
+
+                    if(command.Channel is SocketTextChannel channel)
                     {
-                        request.Headers.Add("ApiKey", UserData.Rows[0]["ApiKey"].ToString());
-                        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-                       
-                        string jsonContent = JsonConvert.SerializeObject(picList);
-                        request.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
-
-                        HttpResponseMessage response = await client.SendAsync(request); 
-                        
-                        response.EnsureSuccessStatusCode();
-
-                        data = await response.Content.ReadFromJsonAsync<List<FtpDataModel>>();
-
-                        if(command.Channel is SocketTextChannel channel)
+                        foreach(var file in data)
                         {
-                            foreach(var file in data)
-                            {
-                                using(var ms = new MemoryStream(file.data))
-                                {
-                                    // Der Name der Datei, die an Discord gesendet wird
-                                    var fileName = file.fileName;
-                                    // Sende die Datei im Discord-Kanal
-                                    await channel.SendFileAsync(ms, fileName);
-                                }
-                            }
-                            await command.FollowupAsync("Alle AI-Bilder wurden gepostet.", ephemeral: true);
+                            using var ms = new MemoryStream(file.Data);
+                            // Der Name der Datei, die an Discord gesendet wird
+                            var fileName = file.FileName;
+                            // Sende die Datei im Discord-Kanal
+                            await channel.SendFileAsync(ms, fileName);
                         }
-                        else
-                        {
-                            await command.FollowupAsync("Dieser Befehl kann nur in Textkanälen verwendet werden.", ephemeral: true);
-                        }
-
+                        await command.FollowupAsync("Alle AI-Bilder wurden gepostet.", ephemeral: true);
+                    }
+                    else
+                    {
+                        await command.FollowupAsync("Dieser Befehl kann nur in Textkanälen verwendet werden.", ephemeral: true);
                     }
                 }
             }

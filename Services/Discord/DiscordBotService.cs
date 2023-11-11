@@ -6,9 +6,12 @@ using KaffeBot.Discord.grundfunktionen.Server;
 using KaffeBot.Discord.grundfunktionen.User;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
+using KaffeBot.Services.Discord.Module;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+
+using MySqlConnector;
 
 using System;
 using System.Collections.Generic;
@@ -24,7 +27,7 @@ namespace KaffeBot.Services.Discord
         private readonly DiscordSocketClient _client;
         private readonly IConfiguration _configuration;
         private readonly IDatabaseService _databaseService;
-        private readonly List<IBotModule> _modules = new List<IBotModule>();
+        private readonly List<IBotModule> _modules = new();
         private bool _isReady;
         private System.Timers.Timer _timer;
 
@@ -70,6 +73,71 @@ namespace KaffeBot.Services.Discord
             }
 
             InitializeTimer(); // Initialisiere den Timer für regelmäßige Ausführung
+
+            // Hinzufügen der channels um bestimmte Module für einen channel zu deaktivieren.
+            foreach(var Server in _client.Guilds)
+            {
+                foreach(var Kanal in Server.TextChannels) // Annahme, dass Sie Textkanäle überprüfen wollen
+                {
+                    MySqlParameter[] parameters = new MySqlParameter[]
+                    {
+                        new MySqlParameter("@ChannelID", Kanal.Id)
+                    };
+
+                    // Überprüfen, ob der Kanal bereits in der Datenbank ist
+                    var result = _databaseService.ExecuteSqlQuery("SELECT * FROM discord_channel WHERE ChannelID = @ChannelID", parameters);
+
+                    if(result.Rows.Count == 0)
+                    {
+                        // Kanal ist nicht in der Datenbank, also fügen Sie ihn hinzu
+                        MySqlParameter[] insertParameters = new MySqlParameter[]
+                        {
+                            new MySqlParameter("@ChannelID", Kanal.Id),
+                            new MySqlParameter("@ChannelName", Kanal.Name)
+                        };
+
+                        string insertQuery = "INSERT INTO discord_channel (ChannelID, ChannelName) VALUES (@ChannelID, @ChannelName)";
+                        _databaseService.ExecuteSqlQuery(insertQuery, insertParameters);
+                        Console.WriteLine($"Kanal {Kanal.Name} zur Datenbank hinzugefügt");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Kanal {Kanal.Name} bereits in der Datenbank");
+                    }
+                }
+            }
+
+            CheckModules checkModules = new(_databaseService);
+
+            foreach(var module in _modules)
+            {
+                int? moduleId = await checkModules.GetModuleIdByName(module.GetType().Name);
+
+                if(!moduleId.HasValue)
+                {
+                    continue; // Wenn das Modul nicht in der Datenbank registriert ist, überspringen
+                }
+
+                foreach(var Server in _client.Guilds)
+                {
+                    foreach(var Kanal in Server.TextChannels)
+                    {
+                        bool isActive = await checkModules.IsModuleActiveForChannel(Kanal.Id, moduleId.Value);
+
+                        if(!isActive)
+                        {
+                            // Fügen Sie den Eintrag hinzu, wenn er nicht existiert
+                            isActive = await checkModules.AddModuleEntryForChannel(Kanal.Id, moduleId.Value);
+                        }
+
+                        if(isActive)
+                        {
+                            // Führe das Modul für diesen Kanal aus, wenn es aktiv ist
+                            await module.ExecuteAsync(CancellationToken.None);
+                        }
+                    }
+                }
+            }
 
             // Führe alle Module aus
             var moduleTasks = _modules.Select(module => module.ExecuteAsync(CancellationToken.None)).ToList();

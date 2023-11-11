@@ -8,7 +8,7 @@ namespace KaffeBot.Models.Api.NAS
 {
     internal class FtpDataModel
     {
-        public string? fileName { get; set; }
-        public byte[]? data { get; set; }
+        public string? FileName { get; set; }
+        public byte[]? Data { get; set; }
     }
 }

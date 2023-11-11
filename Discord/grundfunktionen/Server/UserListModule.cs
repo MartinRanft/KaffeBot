@@ -12,7 +12,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
     {
         private readonly DiscordSocketClient _client;
         private readonly IDatabaseService _databaseService;
-        private readonly Dictionary<ulong, bool> _activeServers = new Dictionary<ulong, bool>();
+        private readonly Dictionary<ulong, bool> _activeServers = new();
 
 
         public bool ShouldExecuteRegularly { get; set; }
@@ -55,21 +55,21 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             return Task.CompletedTask;
         }
 
-        public Task ActivateAsync(ulong serverId)
+        public Task ActivateAsync(ulong ChannelID)
         {
-            _activeServers[serverId] = true;
+            _activeServers[ChannelID] = true;
             return Task.CompletedTask;
         }
 
-        public Task DeactivateAsync(ulong serverId)
+        public Task DeactivateAsync(ulong ChannelID)
         {
-            _activeServers[serverId] = false;
+            _activeServers[ChannelID] = false;
             return Task.CompletedTask;
         }
 
-        public bool IsActive(ulong serverId)
+        public bool IsActive(ulong ChannelID)
         {
-            return _activeServers.TryGetValue(serverId, out var isActive) && isActive;
+            return _activeServers.TryGetValue(ChannelID, out var isActive) && isActive;
         }
 
         private async Task AddOrUpdateUser(SocketGuildUser user)
