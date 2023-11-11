@@ -174,9 +174,13 @@ namespace KaffeBot.Discord.BotOwner
 
             var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
 
-            if(Modules.Rows == null || Modules.Rows[0][1] != modulename)
+            if(Modules.Rows.Count > 0)
             {
-                Console.WriteLine($"Modul ({modulename}) in DB");
+                string moduleNameInDB = Modules!.Rows[0]["ModuleName"]!.ToString()!;
+                if(moduleNameInDB!.Equals(modulename, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"Modul ({modulename}) in DB");
+                }
             }
             else
             {
