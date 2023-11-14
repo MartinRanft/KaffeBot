@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using KaffeBot.Interfaces.DB;
+﻿using KaffeBot.Interfaces.DB;
 
 using MySqlConnector;
 
@@ -19,7 +13,7 @@ namespace KaffeBot.Services.Discord.Module
             this._databaseService = databaseService;
         }
 
-        internal async Task<int?> GetModuleIdByName(string moduleName)
+        internal int? GetModuleIdByName(string moduleName)
         {
             MySqlParameter[] parameters = new MySqlParameter[]
             {
@@ -36,7 +30,7 @@ namespace KaffeBot.Services.Discord.Module
             return null;
         }
 
-        public async Task<bool> IsModuleActiveForChannel(ulong channelId, int moduleId)
+        public bool IsModuleActiveForChannel(ulong channelId, int moduleId)
         {
             MySqlParameter[] parameters = new MySqlParameter[]
             {
@@ -55,7 +49,7 @@ namespace KaffeBot.Services.Discord.Module
             return Convert.ToBoolean(result.Rows[0]["isActive"]);
         }
 
-        internal async Task<bool> AddModuleEntryForChannel(ulong channelId, int moduleId)
+        internal bool AddModuleEntryForChannel(ulong channelId, int moduleId)
         {
             MySqlParameter[] checkParameters = new MySqlParameter[]
             {

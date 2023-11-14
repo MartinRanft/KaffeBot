@@ -2,6 +2,7 @@
 
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
+
 using Microsoft.Extensions.Configuration;
 
 using MySqlConnector;
@@ -13,6 +14,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         private readonly DiscordSocketClient _client;
         private readonly IDatabaseService _databaseService;
         private readonly HashSet<ulong> _activeServers;
+        public bool _isActive { get; set; }
 
         public bool ShouldExecuteRegularly { get; set; }
 
@@ -27,11 +29,11 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         public async Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
         {
             // Initialisiere die Liste der aktiven Server aus der Datenbank
-            await LoadActiveServersFromDatabase();
+            LoadActiveServersFromDatabase();
             await RegisterModul(nameof(ServerListModule));
         }
 
-        public async Task ExecuteAsync(CancellationToken stoppingToken)
+        public Task Execute(CancellationToken stoppingToken)
         {
             // Liste alle Server auf, auf denen sich der Bot befindet
             foreach(var guild in _client.Guilds)
@@ -39,31 +41,63 @@ namespace KaffeBot.Discord.grundfunktionen.Server
                 System.Console.WriteLine($"Der Bot ist auf dem Server: {guild.Name} ({guild.Id})");
 
                 // Füge Logik hinzu, um mit der Datenbank abzugleichen
-                await SyncWithDatabase(guild.Id, guild.Name);
+                SyncWithDatabase(guild.Id, guild.Name);
             }
+            return Task.CompletedTask;
         }
 
-        public async Task ActivateAsync(ulong serverId)
+        public Task ActivateAsync(ulong channelId, string moduleName)
         {
-            _activeServers.Add(serverId);
+            _isActive = true;
 
-            // Aktualisiere die Datenbank, um den Server als aktiv zu markieren
-            await UpdateServerStatusInDatabase(serverId, true);
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
+            };
+
+            _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
+
+            return Task.CompletedTask;
         }
 
-        public async Task DeactivateAsync(ulong serverId)
+        public Task DeactivateAsync(ulong channelId, string moduleName)
         {
-            _activeServers.Remove(serverId);
-            // Aktualisiere die Datenbank, um den Server als inaktiv zu markieren
-            await UpdateServerStatusInDatabase(serverId, false);
+            _isActive = false;
+
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
+            };
+
+            _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
+            return Task.CompletedTask;
         }
 
-        public bool IsActive(ulong serverId)
+        public bool IsActive(ulong channelId, string moduleNam)
         {
-            return _activeServers.Contains(serverId);
+
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleNam)
+            };
+
+            string getActive = "" +
+                "SELECT isActive " +
+                " FROM view_channel_module_status " +
+                " WHERE ChannelID = @IDChannel" +
+                " AND ModuleName = @NameModul;";
+
+            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+
+            return (bool)rows.Rows[0]["isActive"];
         }
 
-        private async Task LoadActiveServersFromDatabase()
+        private void LoadActiveServersFromDatabase()
         {
             MySqlParameter[] parameters = Array.Empty<MySqlParameter>();
             var dataTable = _databaseService.ExecuteSqlQuery("SELECT ServerID, ServerName FROM discord_server", parameters);
@@ -83,8 +117,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             }
         }
 
-
-        private async Task SyncWithDatabase(ulong serverId, string serverName)
+        private void SyncWithDatabase(ulong serverId, string serverName)
         {
             // Implementiere die Logik, um den Server mit der Datenbank abzugleichen
             var parameters = new MySqlParameter[]
@@ -96,7 +129,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             _databaseService.ExecuteStoredProcedure("SyncServerWithDatabase", parameters);
         }
 
-        private async Task UpdateServerStatusInDatabase(ulong serverId, bool isActive)
+        private void UpdateServerStatusInDatabase(ulong serverId, bool isActive)
         {
             var parameters = new MySqlParameter[]
             {

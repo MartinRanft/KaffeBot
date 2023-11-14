@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http.Json;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Net.Http.Json;
+using System.Threading.Channels;
 
 using Discord;
 using Discord.Commands;
@@ -21,38 +16,54 @@ using MySqlConnector;
 
 using Newtonsoft.Json;
 
-using GroupAttribute = Discord.Interactions.GroupAttribute;
-
 namespace KaffeBot.Discord.BotOwner
 {
-
-    internal class AiPicToChanel : InteractionModuleBase<SocketInteractionContext>, IBotModule
+    public class AiPicToChanel : InteractionModuleBase<SocketInteractionContext>, IBotModule
     {
         private readonly DiscordSocketClient _client;
         private readonly IDatabaseService _databaseService;
-        private bool _isActive;
+        public bool _isActive { get; set; }
         public bool ShouldExecuteRegularly { get; set; }
 
-        public AiPicToChanel(DiscordSocketClient client, IDatabaseService databaseService) 
+        public AiPicToChanel(DiscordSocketClient client, IDatabaseService databaseService)
         {
             _client = client;
             _databaseService = databaseService;
             ShouldExecuteRegularly = false;
         }
 
-        public Task ActivateAsync(ulong serverId)
+        public Task ActivateAsync(ulong channelId, string moduleName)
         {
             _isActive = true;
+
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
+            };
+
+            _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
+
             return Task.CompletedTask;
         }
 
-        public Task DeactivateAsync(ulong serverId)
+        public Task DeactivateAsync(ulong channelId, string moduleName)
         {
             _isActive = false;
+
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
+            };
+
+            _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
             return Task.CompletedTask;
         }
 
-        public Task ExecuteAsync(CancellationToken stoppingToken)
+        public Task Execute(CancellationToken stoppingToken)
         {
             return Task.CompletedTask;
         }
@@ -79,82 +90,104 @@ namespace KaffeBot.Discord.BotOwner
             }
         }
 
-
         [SlashCommand("ai_bilder", "AI Bilder Function")]
         private async Task SendAIPicToChannel(SocketSlashCommand command)
         {
-            command.DeferAsync(true);
+            _ = command.DeferAsync(true);
             var user = command.User;
-            HttpClient client = new();
-            var apiBase = "https://api.bytewizards.de/";
+            var channel = command.Channel;
 
-            MySqlParameter[] parameter = new MySqlParameter[]
+            if(IsActive(channel.Id,GetType().Name))
             {
+                HttpClient client = new();
+                var apiBase = "https://api.bytewizards.de/";
+
+                MySqlParameter[] parameter = new MySqlParameter[]
+                {
                 new MySqlParameter("@user_id", user.Id),
-            };
+                };
 
-            var UserData = _databaseService.ExecuteStoredProcedure("GetDiscordUserDetails", parameter);
+                var UserData = _databaseService.ExecuteStoredProcedure("GetDiscordUserDetails", parameter);
 
-            if (UserData.Rows.Count > 0 && (bool)UserData.Rows[0]["isAdmin"])
-            {
-                List<string>? picList = null;
-                using(HttpRequestMessage request = new(HttpMethod.Get, apiBase + "api/nas/pics"))
+                if(UserData.Rows.Count > 0 && (bool)UserData.Rows[0]["isAdmin"])
                 {
-                    request.Headers.Add("ApiKey", UserData.Rows[0]["ApiKey"].ToString());
-                    HttpResponseMessage response = await client.SendAsync(request);
-
-                    response.EnsureSuccessStatusCode();
-
-                    picList = await response.Content.ReadFromJsonAsync<List<string>>();                    
-                }
-
-                if(picList.Count == 0 || picList is null)
-                {
-                    await command.FollowupAsync("Keine Bilder vorhanden.", ephemeral: true);
-                }
-                else
-                {
-                    using HttpRequestMessage request = new(HttpMethod.Post, apiBase + "api/nas/getFiles");
-                    request.Headers.Add("ApiKey", UserData.Rows[0]["ApiKey"].ToString());
-                    request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-
-                    string jsonContent = JsonConvert.SerializeObject(picList);
-                    request.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
-
-                    HttpResponseMessage response = await client.SendAsync(request);
-
-                    response.EnsureSuccessStatusCode();
-
-                    List<FtpDataModel>? data = await response.Content.ReadFromJsonAsync<List<FtpDataModel>>();
-
-                    if(command.Channel is SocketTextChannel channel)
+                    List<string>? picList = null;
+                    using(HttpRequestMessage request = new(HttpMethod.Get, apiBase + "api/nas/pics"))
                     {
-                        foreach(var file in data)
-                        {
-                            using var ms = new MemoryStream(file.Data);
-                            // Der Name der Datei, die an Discord gesendet wird
-                            var fileName = file.FileName;
-                            // Sende die Datei im Discord-Kanal
-                            await channel.SendFileAsync(ms, fileName);
-                        }
-                        await command.FollowupAsync("Alle AI-Bilder wurden gepostet.", ephemeral: true);
+                        request.Headers.Add("ApiKey", UserData.Rows[0]["ApiKey"].ToString());
+                        HttpResponseMessage response = await client.SendAsync(request);
+
+                        response.EnsureSuccessStatusCode();
+
+                        picList = await response.Content.ReadFromJsonAsync<List<string>>();
+                    }
+
+                    if(picList!.Count == 0 || picList is null)
+                    {
+                        await command.FollowupAsync("Keine Bilder vorhanden.", ephemeral: true);
                     }
                     else
                     {
-                        await command.FollowupAsync("Dieser Befehl kann nur in Textkanälen verwendet werden.", ephemeral: true);
+                        using HttpRequestMessage request = new(HttpMethod.Post, apiBase + "api/nas/getFiles");
+                        request.Headers.Add("ApiKey", UserData.Rows[0]["ApiKey"].ToString());
+                        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                        string jsonContent = JsonConvert.SerializeObject(picList);
+                        request.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+
+                        HttpResponseMessage response = await client.SendAsync(request);
+
+                        response.EnsureSuccessStatusCode();
+
+                        List<FtpDataModel>? data = await response.Content.ReadFromJsonAsync<List<FtpDataModel>>();
+
+                        if(channel is SocketTextChannel)
+                        {
+                            foreach(var file in data!)
+                            {
+                                using var ms = new MemoryStream(file.Data!);
+                                // Der Name der Datei, die an Discord gesendet wird
+                                var fileName = file.FileName;
+                                // Sende die Datei im Discord-Kanal
+                                await channel.SendFileAsync(ms, fileName);
+                            }
+                            await command.FollowupAsync("Alle AI-Bilder wurden gepostet.", ephemeral: true);
+                        }
+                        else
+                        {
+                            await command.FollowupAsync("Dieser Befehl kann nur in Textkanälen verwendet werden.", ephemeral: true);
+                        }
                     }
+                }
+                else
+                {
+                    await command.FollowupAsync("Sie haben nicht die Berechtigung für diesen Command.", ephemeral: true);
                 }
             }
             else
             {
-                await command.FollowupAsync("Sie haben nicht die Berechtigung für diesen Command.", ephemeral: true);
+                await command.FollowupAsync("Dieser Befehl ist für diesen Channel nicht verfügbar.");
             }
-
         }
 
-        public bool IsActive(ulong serverId)
+        public bool IsActive(ulong channelId, string moduleNam)
         {
-            return _isActive;
+
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleNam)
+            };
+
+            string getActive = "" +
+                "SELECT isActive " +
+                " FROM view_channel_module_status " +
+                " WHERE ChannelID = @IDChannel" +
+                " AND ModuleName = @NameModul;";
+
+            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+
+            return (bool)rows.Rows[0]["isActive"];
         }
 
         public Task RegisterModul(string modulename)

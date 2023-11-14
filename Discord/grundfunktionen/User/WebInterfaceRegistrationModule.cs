@@ -1,8 +1,6 @@
 ﻿using System.Data;
-using System.Data.Common;
 
 using Discord;
-using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
 
@@ -13,15 +11,13 @@ using Microsoft.Extensions.Configuration;
 
 using MySqlConnector;
 
-using GroupAttribute = Discord.Interactions.GroupAttribute;
-
 namespace KaffeBot.Discord.grundfunktionen.User
 {
     public class WebInterfaceRegistrationModule : InteractionModuleBase<SocketInteractionContext>, IBotModule
     {
         private readonly DiscordSocketClient _client;
         private readonly IDatabaseService _databaseService;
-        private bool _isActive;
+        public bool _isActive { get; set; }
 
         public bool ShouldExecuteRegularly { get; set; }
 
@@ -46,7 +42,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 .WithDescription("Setzen dein Password für das WebInterface neu")
                 .AddOption("password", ApplicationCommandOptionType.String, "Das Password was du nun Benutzen möchtest", isRequired: true)
                 .Build());
-            
+
             _client.SlashCommandExecuted += HandleSlashCommandAsync;
             await RegisterModul(nameof(WebInterfaceRegistrationModule));
         }
@@ -59,34 +55,68 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 case "reg_webinterface":
                     await RegisterWebInterfacePasswordAsync(command);
                     break;
+
                 case "password_reset":
                     await ResetWebInterfacePasswordAsync(command);
                     break;
             }
         }
 
-        public Task ExecuteAsync(CancellationToken stoppingToken)
+        public Task Execute(CancellationToken stoppingToken)
         {
             // Führen Sie hier regelmäßige Aufgaben aus, wenn ShouldExecuteRegularly true ist
             return Task.CompletedTask;
         }
 
-        public Task ActivateAsync(ulong serverId)
+        public Task ActivateAsync(ulong channelId, string moduleName)
         {
             _isActive = true;
+
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
+            };
+
+            _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
+
             return Task.CompletedTask;
         }
 
-        public Task DeactivateAsync(ulong serverId)
+        public Task DeactivateAsync(ulong channelId, string moduleName)
         {
             _isActive = false;
+
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
+            };
+
+            _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
             return Task.CompletedTask;
         }
 
-        public bool IsActive(ulong serverId)
+        public bool IsActive(ulong channelId, string moduleNam)
         {
-            // Implementieren Sie die Logik, um zu überprüfen, ob das Modul für einen bestimmten Server aktiv ist
-            return _isActive;
+
+            MySqlParameter[] isActivePara = new MySqlParameter[]
+            {
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleNam)
+            };
+
+            string getActive = "" +
+                "SELECT isActive " +
+                " FROM view_channel_module_status " +
+                " WHERE ChannelID = @IDChannel" +
+                " AND ModuleName = @NameModul;";
+
+            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+
+            return (bool)rows.Rows[0]["isActive"];
         }
 
         [SlashCommand("reg_webinterface", "Registriert ein Passwort für das Webinterface.")]
@@ -116,7 +146,6 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
                 if(userData.Rows[0]["Password"] == DBNull.Value)
                 {
-
                     DataTable rowsAffected = _databaseService.ExecuteStoredProcedure("SetUserPassword", parameters);
 
                     if(rowsAffected.Rows.Count > 0)

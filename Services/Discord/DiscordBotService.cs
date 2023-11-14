@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 
 using KaffeBot.Discord.BotOwner;
@@ -13,13 +14,6 @@ using Microsoft.Extensions.Hosting;
 
 using MySqlConnector;
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Timers;
-
 namespace KaffeBot.Services.Discord
 {
     public class DiscordBotService : BackgroundService
@@ -31,7 +25,9 @@ namespace KaffeBot.Services.Discord
         private bool _isReady;
         private System.Timers.Timer _timer;
 
+#pragma warning disable CS8618 // Ein Non-Nullable-Feld muss beim Beenden des Konstruktors einen Wert ungleich NULL enthalten. Erwägen Sie die Deklaration als Nullable.
         public DiscordBotService(IConfiguration configuration, IDatabaseService databaseService)
+#pragma warning restore CS8618 // Ein Non-Nullable-Feld muss beim Beenden des Konstruktors einen Wert ungleich NULL enthalten. Erwägen Sie die Deklaration als Nullable.
         {
             var clientConfig = new DiscordSocketConfig
             {
@@ -53,13 +49,16 @@ namespace KaffeBot.Services.Discord
             _modules.Add(new AiPicToChanel(_client, _databaseService));
         }
 
-
         private async Task OnGuildAvailableAsync(SocketGuild guild)
         {
             if(_isReady)
             {
                 // Logik für das Ausführen von Modulen beim Betreten eines Servers
-                await ActivateModuleAsync("ServerListModule", guild.Id);
+
+                foreach(var channel in guild.Channels)
+                {
+                    await ActivateModuleAsync("ServerListModule", channel.Id); 
+                }
             }
         }
 
@@ -111,7 +110,7 @@ namespace KaffeBot.Services.Discord
 
             foreach(var module in _modules)
             {
-                int? moduleId = await checkModules.GetModuleIdByName(module.GetType().Name);
+                int? moduleId = checkModules.GetModuleIdByName(module.GetType().Name);
 
                 if(!moduleId.HasValue)
                 {
@@ -122,25 +121,25 @@ namespace KaffeBot.Services.Discord
                 {
                     foreach(var Kanal in Server.TextChannels)
                     {
-                        bool isActive = await checkModules.IsModuleActiveForChannel(Kanal.Id, moduleId.Value);
+                        bool isActive = checkModules.IsModuleActiveForChannel(Kanal.Id, moduleId.Value);
 
                         if(!isActive)
                         {
                             // Fügen Sie den Eintrag hinzu, wenn er nicht existiert
-                            isActive = await checkModules.AddModuleEntryForChannel(Kanal.Id, moduleId.Value);
+                            isActive = checkModules.AddModuleEntryForChannel(Kanal.Id, moduleId.Value);
                         }
 
                         if(isActive)
                         {
                             // Führe das Modul für diesen Kanal aus, wenn es aktiv ist
-                            await module.ExecuteAsync(CancellationToken.None);
+                            await module.Execute(CancellationToken.None);
                         }
                     }
                 }
             }
 
             // Führe alle Module aus
-            var moduleTasks = _modules.Select(module => module.ExecuteAsync(CancellationToken.None)).ToList();
+            var moduleTasks = _modules.Select(module => module.Execute(CancellationToken.None)).ToList();
             await Task.WhenAll(moduleTasks);
         }
 
@@ -160,11 +159,10 @@ namespace KaffeBot.Services.Discord
                 // Überprüfen Sie, ob das Modul regelmäßig ausgeführt werden soll
                 if(module.ShouldExecuteRegularly)
                 {
-                    await module.ExecuteAsync(CancellationToken.None);
+                    await module.Execute(CancellationToken.None);
                 }
             }
         }
-
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -201,7 +199,7 @@ namespace KaffeBot.Services.Discord
             return Task.CompletedTask;
         }
 
-        public async Task ActivateModuleAsync(string moduleName, ulong serverId)
+        public async Task ActivateModuleAsync(string moduleName, ulong channelID)
         {
             if(!_isReady)
             {
@@ -211,11 +209,11 @@ namespace KaffeBot.Services.Discord
             var module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
             if(module != null)
             {
-                await module.ActivateAsync(serverId);
+                await module.ActivateAsync(channelID, moduleName);
             }
         }
 
-        public async Task DeactivateModuleAsync(string moduleName, ulong serverId)
+        public async Task DeactivateModuleAsync(string moduleName, ulong channelID)
         {
             if(!_isReady)
             {
@@ -225,11 +223,11 @@ namespace KaffeBot.Services.Discord
             var module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
             if(module != null)
             {
-                await module.DeactivateAsync(serverId);
+                await module.DeactivateAsync(channelID, moduleName);
             }
         }
 
-        public bool IsModuleActive(string moduleName, ulong serverId)
+        public bool IsModuleActive(string moduleName, ulong channelId)
         {
             if(!_isReady)
             {
@@ -237,7 +235,13 @@ namespace KaffeBot.Services.Discord
             }
 
             var module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
-            return module?.IsActive(serverId) ?? false;
+            
+            if(module == null)
+            {
+                return false; // Modul nicht gefunden
+            }
+
+            return module.IsActive(channelId, moduleName);
         }
 
         // Diese Methode kann aufgerufen werden, um ein Modul zur Laufzeit hinzuzufügen.
@@ -262,7 +266,7 @@ namespace KaffeBot.Services.Discord
             var module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
             if(module != null)
             {
-                await module.ExecuteAsync(CancellationToken.None);
+                await module.Execute(CancellationToken.None);
             }
         }
     }
