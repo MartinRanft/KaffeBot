@@ -1,7 +1,7 @@
 ﻿using KaffeBot.Interfaces.DB;
 using KaffeBot.Services.DB;
 using KaffeBot.Services.Discord;
-using KaffeBot.Services.TCplistner;
+using KaffeBot.Services.WSS;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,20 +37,8 @@ namespace KaffeBot
                     services.AddHostedService<DiscordBotService>(provider =>
                         new DiscordBotService(configuration, provider.GetRequiredService<IDatabaseService>()));
 
-                    // Erstellen Sie den TCP-Server mit der festgelegten IP und dem Port
-                    services.AddSingleton<AesTcpServer>(provider =>
-                    {
-                        var configuration = provider.GetRequiredService<IConfiguration>();
-#if !DEBUG
-                        string ipAddress = configuration["TcpServer:Prod:IP"]!;
-                        int port = int.Parse(configuration["TcpServer:Prod:Port"]!);
-#else
-                        string ipAddress = configuration["TCPServer:Test:IP"]!;
-                        int port = int.Parse(configuration["TCPServer:Test:Port"]!);
-#endif
-                        return new AesTcpServer(ipAddress, port);
-                    });
-                    services.AddHostedService<TcpServerService>();
+                    services.AddHostedService<WebSocketServer>(provider =>
+                        new WebSocketServer(8080));
                 });
     }
 }
