@@ -9,22 +9,13 @@ using MySqlConnector;
 
 namespace KaffeBot.Discord.grundfunktionen.Server
 {
-    public class ServerListModule : IBotModule
+    public class ServerListModule(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
-        private readonly DiscordSocketClient _client;
-        private readonly IDatabaseService _databaseService;
-        private readonly HashSet<ulong> _activeServers;
-        public bool _isActive { get; set; }
+        private readonly DiscordSocketClient _client = client;
+        private readonly IDatabaseService _databaseService = databaseService;
+        private readonly HashSet<ulong> _activeServers = [];
 
-        public bool ShouldExecuteRegularly { get; set; }
-
-        public ServerListModule(DiscordSocketClient client, IDatabaseService databaseService)
-        {
-            ShouldExecuteRegularly = false;
-            _client = client;
-            _databaseService = databaseService;
-            _activeServers = new HashSet<ulong>();
-        }
+        public bool ShouldExecuteRegularly { get; set; } = false;
 
         public async Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
         {
@@ -48,14 +39,12 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
         public Task ActivateAsync(ulong channelId, string moduleName)
         {
-            _isActive = true;
-
-            MySqlParameter[] isActivePara = new MySqlParameter[]
-            {
-                new MySqlParameter("@IDChannel", channelId),
-                new MySqlParameter("@NameModul", moduleName),
-                new MySqlParameter("@IsActive", true)
-            };
+            MySqlParameter[] isActivePara =
+            [
+                new("@IDChannel", channelId),
+                new("@NameModul", moduleName),
+                new("@IsActive", true)
+            ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
 
@@ -64,14 +53,13 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
         public Task DeactivateAsync(ulong channelId, string moduleName)
         {
-            _isActive = false;
 
-            MySqlParameter[] isActivePara = new MySqlParameter[]
-            {
-                new MySqlParameter("@IDChannel", channelId),
-                new MySqlParameter("@NameModul", moduleName),
-                new MySqlParameter("@IsActive", false)
-            };
+            MySqlParameter[] isActivePara =
+            [
+                new("@IDChannel", channelId),
+                new("@NameModul", moduleName),
+                new("@IsActive", false)
+            ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
             return Task.CompletedTask;
@@ -80,11 +68,11 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         public bool IsActive(ulong channelId, string moduleNam)
         {
 
-            MySqlParameter[] isActivePara = new MySqlParameter[]
-            {
-                new MySqlParameter("@IDChannel", channelId),
-                new MySqlParameter("@NameModul", moduleNam)
-            };
+            MySqlParameter[] isActivePara =
+            [
+                new("@IDChannel", channelId),
+                new("@NameModul", moduleNam)
+            ];
 
             string getActive = "" +
                 "SELECT isActive " +
@@ -99,7 +87,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
         private void LoadActiveServersFromDatabase()
         {
-            MySqlParameter[] parameters = Array.Empty<MySqlParameter>();
+            MySqlParameter[] parameters = [];
             var dataTable = _databaseService.ExecuteSqlQuery("SELECT ServerID, ServerName FROM discord_server", parameters);
             foreach(System.Data.DataRow row in dataTable.Rows)
             {
@@ -122,8 +110,8 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             // Implementiere die Logik, um den Server mit der Datenbank abzugleichen
             var parameters = new MySqlParameter[]
             {
-            new MySqlParameter("@DiscordID", serverId),
-            new MySqlParameter("@DiscordName", serverName)
+            new("@DiscordID", serverId),
+            new("@DiscordName", serverName)
             };
 
             _databaseService.ExecuteStoredProcedure("SyncServerWithDatabase", parameters);
@@ -133,8 +121,8 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         {
             var parameters = new MySqlParameter[]
             {
-            new MySqlParameter("@ServerId", serverId),
-            new MySqlParameter("@IsActive", isActive)
+            new("@ServerId", serverId),
+            new("@IsActive", isActive)
             };
 
             _databaseService.ExecuteStoredProcedure("UpdateServerStatus", parameters);
@@ -142,10 +130,10 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
         public Task RegisterModul(string modulename)
         {
-            MySqlParameter[] parameter = new MySqlParameter[]
-            {
-                new MySqlParameter("@NameModul", modulename)
-            };
+            MySqlParameter[] parameter =
+            [
+                new("@NameModul", modulename)
+            ];
 
             string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
 

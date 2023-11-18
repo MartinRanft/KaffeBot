@@ -1,6 +1,7 @@
 ﻿using KaffeBot.Interfaces.DB;
 using KaffeBot.Services.DB;
 using KaffeBot.Services.Discord;
+using KaffeBot.Services.TCP;
 using KaffeBot.Services.WSS;
 
 using Microsoft.Extensions.Configuration;
@@ -37,8 +38,8 @@ namespace KaffeBot
                     services.AddHostedService<DiscordBotService>(provider =>
                         new DiscordBotService(configuration, provider.GetRequiredService<IDatabaseService>()));
 
-                    services.AddHostedService<WebSocketServer>(provider =>
-                        new WebSocketServer(8080));
+                    services.AddHostedService<TCPServer>(provider =>
+                        new TCPServer(8080));
                 });
     }
 }

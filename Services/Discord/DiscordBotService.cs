@@ -21,7 +21,7 @@ namespace KaffeBot.Services.Discord
         private readonly DiscordSocketClient _client;
         private readonly IConfiguration _configuration;
         private readonly IDatabaseService _databaseService;
-        private readonly List<IBotModule> _modules = new();
+        private readonly List<IBotModule> _modules = [];
         private bool _isReady;
         private System.Timers.Timer _timer;
 
@@ -78,10 +78,10 @@ namespace KaffeBot.Services.Discord
             {
                 foreach(var Kanal in Server.TextChannels) // Annahme, dass Sie Textkanäle überprüfen wollen
                 {
-                    MySqlParameter[] parameters = new MySqlParameter[]
-                    {
-                        new MySqlParameter("@ChannelID", Kanal.Id)
-                    };
+                    MySqlParameter[] parameters =
+                    [
+                        new("@ChannelID", Kanal.Id)
+                    ];
 
                     // Überprüfen, ob der Kanal bereits in der Datenbank ist
                     var result = _databaseService.ExecuteSqlQuery("SELECT * FROM discord_channel WHERE ChannelID = @ChannelID", parameters);
@@ -89,11 +89,11 @@ namespace KaffeBot.Services.Discord
                     if(result.Rows.Count == 0)
                     {
                         // Kanal ist nicht in der Datenbank, also fügen Sie ihn hinzu
-                        MySqlParameter[] insertParameters = new MySqlParameter[]
-                        {
-                            new MySqlParameter("@ChannelID", Kanal.Id),
-                            new MySqlParameter("@ChannelName", Kanal.Name)
-                        };
+                        MySqlParameter[] insertParameters =
+                        [
+                            new("@ChannelID", Kanal.Id),
+                            new("@ChannelName", Kanal.Name)
+                        ];
 
                         string insertQuery = "INSERT INTO discord_channel (ChannelID, ChannelName) VALUES (@ChannelID, @ChannelName)";
                         _databaseService.ExecuteSqlQuery(insertQuery, insertParameters);

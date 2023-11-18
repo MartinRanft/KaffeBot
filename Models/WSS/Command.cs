@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace KaffeBot.Models.TCP
+namespace KaffeBot.Models.WSS
 {
     internal class CommandModel
     {

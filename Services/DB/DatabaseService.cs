@@ -21,12 +21,16 @@ namespace KaffeBot.Services.DB
         /// <param name="configuration">Eine IConfiguration-Instanz, die auf die Anwendungs- und Konfigurationsdaten zugreift.</param>
         public DatabaseService(IConfiguration configuration)
         {
-            if(configuration is null)
+            if(configuration == null)
             {
                 throw new ArgumentNullException(nameof(configuration), "Configuration is required.");
             }
 
-            _connectionString = configuration.GetConnectionString("MariaDBConnection") ?? throw new ArgumentNullException("", "Connection string is not configured.");
+            _connectionString = configuration.GetConnectionString("MariaDBConnection")!;
+            if(string.IsNullOrEmpty(_connectionString))
+            {
+                throw new InvalidOperationException("Connection string 'MariaDBConnection' is not configured.");
+            }
         }
 
         /// <summary>

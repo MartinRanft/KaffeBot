@@ -18,30 +18,20 @@ using Newtonsoft.Json;
 
 namespace KaffeBot.Discord.BotOwner
 {
-    public class AiPicToChanel : InteractionModuleBase<SocketInteractionContext>, IBotModule
+    public class AiPicToChanel(DiscordSocketClient client, IDatabaseService databaseService) : InteractionModuleBase<SocketInteractionContext>, IBotModule
     {
-        private readonly DiscordSocketClient _client;
-        private readonly IDatabaseService _databaseService;
-        public bool _isActive { get; set; }
-        public bool ShouldExecuteRegularly { get; set; }
-
-        public AiPicToChanel(DiscordSocketClient client, IDatabaseService databaseService)
-        {
-            _client = client;
-            _databaseService = databaseService;
-            ShouldExecuteRegularly = false;
-        }
+        private readonly DiscordSocketClient _client = client;
+        private readonly IDatabaseService _databaseService = databaseService;
+        public bool ShouldExecuteRegularly { get; set; } = false;
 
         public Task ActivateAsync(ulong channelId, string moduleName)
         {
-            _isActive = true;
-
-            MySqlParameter[] isActivePara = new MySqlParameter[]
-            {
-                new MySqlParameter("@IDChannel", channelId),
-                new MySqlParameter("@NameModul", moduleName),
-                new MySqlParameter("@IsActive", true)
-            };
+            MySqlParameter[] isActivePara =
+            [
+                new("@IDChannel", channelId),
+                new("@NameModul", moduleName),
+                new("@IsActive", true)
+            ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
 
@@ -50,14 +40,12 @@ namespace KaffeBot.Discord.BotOwner
 
         public Task DeactivateAsync(ulong channelId, string moduleName)
         {
-            _isActive = false;
-
-            MySqlParameter[] isActivePara = new MySqlParameter[]
-            {
-                new MySqlParameter("@IDChannel", channelId),
-                new MySqlParameter("@NameModul", moduleName),
-                new MySqlParameter("@IsActive", false)
-            };
+            MySqlParameter[] isActivePara =
+            [
+                new("@IDChannel", channelId),
+                new("@NameModul", moduleName),
+                new("@IsActive", false)
+            ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
             return Task.CompletedTask;
@@ -102,10 +90,10 @@ namespace KaffeBot.Discord.BotOwner
                 HttpClient client = new();
                 var apiBase = "https://api.bytewizards.de/";
 
-                MySqlParameter[] parameter = new MySqlParameter[]
-                {
-                new MySqlParameter("@user_id", user.Id),
-                };
+                MySqlParameter[] parameter =
+                [
+                new("@user_id", user.Id),
+                ];
 
                 var UserData = _databaseService.ExecuteStoredProcedure("GetDiscordUserDetails", parameter);
 
@@ -170,14 +158,14 @@ namespace KaffeBot.Discord.BotOwner
             }
         }
 
-        public bool IsActive(ulong channelId, string moduleNam)
+        public bool IsActive(ulong channelId, string moduleName)
         {
 
-            MySqlParameter[] isActivePara = new MySqlParameter[]
-            {
-                new MySqlParameter("@IDChannel", channelId),
-                new MySqlParameter("@NameModul", moduleNam)
-            };
+            MySqlParameter[] isActivePara =
+            [
+                new("@IDChannel", channelId),
+                new("@NameModul", moduleName)
+            ];
 
             string getActive = "" +
                 "SELECT isActive " +
@@ -192,10 +180,10 @@ namespace KaffeBot.Discord.BotOwner
 
         public Task RegisterModul(string modulename)
         {
-            MySqlParameter[] parameter = new MySqlParameter[]
-            {
-                new MySqlParameter("@NameModul", modulename)
-            };
+            MySqlParameter[] parameter =
+            [
+                new("@NameModul", modulename)
+            ];
 
             string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
 

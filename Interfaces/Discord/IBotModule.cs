@@ -7,7 +7,6 @@ namespace KaffeBot.Interfaces.Discord
     public interface IBotModule
     {
         bool ShouldExecuteRegularly { get; set; }
-        bool _isActive { get; set; }
 
         Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration);
 
