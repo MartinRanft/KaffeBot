@@ -36,11 +36,10 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             }
         }
 
-#pragma warning disable CS1998 // Bei der asynchronen Methode fehlen "await"-Operatoren. Die Methode wird synchron ausgeführt.
-        private async Task OnUserJoinedAsync(SocketGuildUser user)
-#pragma warning restore CS1998 // Bei der asynchronen Methode fehlen "await"-Operatoren. Die Methode wird synchron ausgeführt.
+        private Task OnUserJoinedAsync(SocketGuildUser user)
         {
             AddOrUpdateUser(user);
+            return Task.CompletedTask;
         }
 
         public Task Execute(CancellationToken stoppingToken)

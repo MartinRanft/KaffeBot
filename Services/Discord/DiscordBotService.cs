@@ -23,11 +23,9 @@ namespace KaffeBot.Services.Discord
         private readonly IDatabaseService _databaseService;
         private readonly List<IBotModule> _modules = [];
         private bool _isReady;
-        private System.Timers.Timer _timer;
+        private System.Timers.Timer? _timer;
 
-#pragma warning disable CS8618 // Ein Non-Nullable-Feld muss beim Beenden des Konstruktors einen Wert ungleich NULL enthalten. Erwägen Sie die Deklaration als Nullable.
         public DiscordBotService(IConfiguration configuration, IDatabaseService databaseService)
-#pragma warning restore CS8618 // Ein Non-Nullable-Feld muss beim Beenden des Konstruktors einen Wert ungleich NULL enthalten. Erwägen Sie die Deklaration als Nullable.
         {
             var clientConfig = new DiscordSocketConfig
             {

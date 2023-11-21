@@ -2,12 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
-using KaffeBot.Models.WSS.User;
+using KaffeBot.Interfaces.DB;
+using KaffeBot.Models.TCP.User;
 using KaffeBot.Services.TCP.Function;
 
 using Microsoft.Extensions.Hosting;
@@ -19,6 +22,8 @@ namespace KaffeBot.Services.TCP
         private readonly TcpListener _listener;
         private readonly int _port;
         private CancellationToken _stoppingToken;
+        private readonly IDatabaseService _database;
+        private readonly X509Certificate2 _certificate;
         private static readonly Dictionary<IPAddress, (int Attempts, DateTime LastAttempt)> FailedAttempts = [];
         private static readonly List<IPAddress> MainFrame =
             [
@@ -28,10 +33,12 @@ namespace KaffeBot.Services.TCP
                 IPAddress.Parse("127.0.0.1")
             ];
 
-        public TCPServer(int port)
+        public TCPServer(int port, X509Certificate2 certificate, IDatabaseService databaseService)
         {
             _port = port;
             _listener = new(IPAddress.Any, _port);
+            _database = databaseService;
+            _certificate = certificate;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -55,24 +62,30 @@ namespace KaffeBot.Services.TCP
             }
         }
 
-        private static async Task HandleClient(TcpClient client, CancellationToken stoppingToken)
+        private async Task HandleClient(TcpClient client, CancellationToken stoppingToken)
         {
             byte[]? sharedKey;
             int messageCount = 0;
             string message;
-            UserModel user;
+            AuthUser authUser = new(_database) ;
+            UserModel? user;
 
             // Erhalten der Client-IP-Adresse
             IPEndPoint? clientEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
             IPAddress clientIP = clientEndPoint?.Address!;
 
+            using var sslStream = new SslStream(client.GetStream(), false);
+
             try
             {
-                sharedKey = await GetSharedKeyAsync(client);
+                await sslStream.AuthenticateAsServerAsync(_certificate);
+
+                sharedKey = await GetSharedKeyAsync(sslStream, client);
 
                 if(sharedKey is null)
                 {
                     Console.WriteLine("Der Schlüssel konnte nicht ausgetauscht werden.");
+                    sslStream.Close();
                     client.Close();
                     return;
                 }
@@ -82,32 +95,32 @@ namespace KaffeBot.Services.TCP
 
                     if(messageCount == 0)
                     {
-                        await SendMessage(client, sharedKey, "Send AUTH NOW");
+                        await SendMessage(sslStream, sharedKey, "Send AUTH NOW");
                     }
 
                     messageCount++;
 
-                    message = await ReceiveMessage(client, sharedKey);
+                    message = await ReceiveMessage(sslStream, sharedKey);
 
                     if(message == "AUTH")
                     {
+                        await SendMessage(sslStream, sharedKey, "SEND KEY");
+                        string keyMessage = await ReceiveMessage(sslStream, sharedKey);
                         message = String.Empty;
-                        await SendMessage(client, sharedKey, "SEND DATA");
+                        await SendMessage(sslStream, sharedKey, "SEND DATA");
 
-                        message = await ReceiveMessage(client, sharedKey);
+                        message = await ReceiveMessage(sslStream, sharedKey);
 
-                        user = await AuthUser.Authenticate(message);
+                        user = await authUser.Authenticate(message, keyMessage)!;
 
                         if(user is null)
                         {
                             UpdateFailedAttempts(clientIP);
-                            await SendMessage(client, sharedKey, "User check Fehlgeschlagen. \r \n Verbindung wird geschlossen.");
+                            await SendMessage(sslStream, sharedKey, "User check Fehlgeschlagen. \r \n Verbindung wird geschlossen.");
                             client.Close();
                         }
                     }
-
                 }
-
             }
             catch(Exception e)
             {
@@ -119,7 +132,7 @@ namespace KaffeBot.Services.TCP
             }
         }
 
-        private static async Task<byte[]?> GetSharedKeyAsync(TcpClient client)
+        private static async Task<byte[]?> GetSharedKeyAsync(SslStream sslStream, TcpClient client)
         {
             byte[] sharedKey;
             try
@@ -129,16 +142,15 @@ namespace KaffeBot.Services.TCP
 
                 byte[] publicKey = ecdh.ExportSubjectPublicKeyInfo();
 
-                NetworkStream stream = client.GetStream();
-                await stream.WriteAsync(BitConverter.GetBytes(publicKey.Length).AsMemory(0, sizeof(int)));
-                await stream.WriteAsync(publicKey);
+                await sslStream.WriteAsync(BitConverter.GetBytes(publicKey.Length).AsMemory(0, sizeof(int)));
+                await sslStream.WriteAsync(publicKey);
 
                 byte[] clientKeyLengthBytes = new byte[sizeof(int)];
-                await stream.ReadAsync(clientKeyLengthBytes.AsMemory(0, sizeof(int)));
+                await sslStream.ReadAsync(clientKeyLengthBytes.AsMemory(0, sizeof(int)));
                 int clientKeyLength = BitConverter.ToInt32(clientKeyLengthBytes, 0);
 
                 byte[] clientPublicKey = new byte[clientKeyLength];
-                await stream.ReadAsync(clientPublicKey.AsMemory(0, clientKeyLength));
+                await sslStream.ReadAsync(clientPublicKey.AsMemory(0, clientKeyLength));
 
                 using var clientECDh = ECDiffieHellman.Create();
                 clientECDh.ImportSubjectPublicKeyInfo(clientPublicKey, out _);
@@ -165,10 +177,8 @@ namespace KaffeBot.Services.TCP
             return Task.CompletedTask;
         }
 
-        private static async Task SendMessage(TcpClient client, byte[] sharedKey, string message)
+        private static async Task SendMessage(SslStream stream, byte[] sharedKey, string message)
         {
-            NetworkStream stream = client.GetStream();
-
             byte[] dataToSend = Encrypt(message, sharedKey);
             await stream.WriteAsync(dataToSend);
         }
@@ -193,10 +203,8 @@ namespace KaffeBot.Services.TCP
             return msEncrypt.ToArray();
         }
 
-        private static async Task<string> ReceiveMessage(TcpClient client, byte[] sharedKey)
+        private static async Task<string> ReceiveMessage(SslStream stream, byte[] sharedKey)
         {
-            NetworkStream stream = client.GetStream();
-
             byte[] buffer = new byte[1024];
             int bytesRead = await stream.ReadAsync(buffer);
             byte[] receivedData = new byte[bytesRead];
@@ -233,14 +241,14 @@ namespace KaffeBot.Services.TCP
             {
                 if(!MainFrame.Contains(clientIP))
                 {
-                    if(!FailedAttempts.ContainsKey(clientIP))
+                    if(!FailedAttempts.TryGetValue(clientIP, out (int Attempts, DateTime LastAttempt) value))
                     {
                         // Erster Fehlversuch für diese IP
                         FailedAttempts[clientIP] = (1, DateTime.UtcNow);
                     }
                     else
                     {
-                        var (attempts, lastAttempt) = FailedAttempts[clientIP];
+                        var (attempts, lastAttempt) = value;
 
                         // Überprüfen, ob seit dem letzten Fehlversuch mehr als 5 Minuten vergangen sind
                         if(DateTime.UtcNow - lastAttempt > TimeSpan.FromMinutes(5))
