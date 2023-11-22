@@ -1,4 +1,10 @@
-﻿using Discord.WebSocket;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+using Discord.WebSocket;
 
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
@@ -7,55 +13,23 @@ using Microsoft.Extensions.Configuration;
 
 using MySqlConnector;
 
-namespace KaffeBot.Discord.grundfunktionen.Server
+namespace KaffeBot.Discord.grundfunktionen.Console
 {
-    public class UserListModule(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
+    internal class ConsoleToWeb(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
-        private readonly DiscordSocketClient _client = client;
         private readonly IDatabaseService _databaseService = databaseService;
-        private readonly Dictionary<ulong, bool> _activeServers = [];
-
+        private readonly DiscordSocketClient _client = client;
+        public event Action<List<SocketMessage>>? OnNewMessages;
+        private List<SocketMessage> _recentMessages = [];
+        private Timer? _messageCleanupTimer;
         public bool ShouldExecuteRegularly { get; set; } = false;
 
-        public async Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
-        {
-            _client.UserJoined += OnUserJoinedAsync;
-            _client.JoinedGuild += OnJoinedGuildAsync;
-            SyncUsersWithDatabase();
-            await RegisterModul(nameof(UserListModule));
-        }
+        public List<SocketMessage> SocketMessages { get => _recentMessages; }
+        public static ConsoleToWeb? ToWeb { get; set; }
 
-        private void SyncUsersWithDatabase()
+        private void NotifyNewMessages()
         {
-            foreach(var guild in _client.Guilds)
-            {
-                foreach(var user in guild.Users)
-                {
-                    System.Console.WriteLine($"Gefundene User: {user.DisplayName}");
-                    AddOrUpdateUser(user);
-                }
-            }
-        }
-
-        private Task OnUserJoinedAsync(SocketGuildUser user)
-        {
-            AddOrUpdateUser(user);
-            return Task.CompletedTask;
-        }
-
-        private Task OnJoinedGuildAsync(SocketGuild guild)
-        {
-            foreach(var user in guild.Users)
-            {
-                AddOrUpdateUser(user);
-            }
-            return Task.CompletedTask;
-        }
-
-        public Task Execute(CancellationToken stoppingToken)
-        {
-            // Hier könnte Logik eingefügt werden, um regelmäßige Aufgaben auszuführen, falls ShouldExecuteRegularly true ist.
-            return Task.CompletedTask;
+            OnNewMessages?.Invoke(_recentMessages);
         }
 
         public Task ActivateAsync(ulong channelId, string moduleName)
@@ -85,13 +59,48 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             return Task.CompletedTask;
         }
 
-        public bool IsActive(ulong channelId, string moduleNam)
+        public Task Execute(CancellationToken stoppingToken)
         {
+            return Task.CompletedTask;
+        }
 
+        public Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
+        {
+            _client.MessageReceived += MessageReceivedAsync;
+            ToWeb = this;
+
+            // Timer einrichten, um Nachrichten alle 30 Minuten zu bereinigen
+            _messageCleanupTimer = new Timer(CleanupOldMessages, null, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30));
+
+            return Task.CompletedTask;
+        }
+
+        private void CleanupOldMessages(object? state)
+        {
+            var threshold = DateTime.UtcNow.AddMinutes(-30);
+            lock(_recentMessages)
+            {
+                _recentMessages = _recentMessages.Where(msg => msg.Timestamp.UtcDateTime > threshold).ToList();
+            }
+        }
+
+        private Task MessageReceivedAsync(SocketMessage message)
+        {
+            lock(_recentMessages)
+            {
+                _recentMessages.Add(message);
+            }
+
+            NotifyNewMessages();
+            return Task.CompletedTask;
+        }
+
+        public bool IsActive(ulong channelId, string moduleName)
+        {
             MySqlParameter[] isActivePara =
             [
                 new("@IDChannel", channelId),
-                new("@NameModul", moduleNam)
+                new("@NameModul", moduleName)
             ];
 
             string getActive = "" +
@@ -103,21 +112,6 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
 
             return (bool)rows.Rows[0]["isActive"];
-        }
-
-        private void AddOrUpdateUser(SocketGuildUser user)
-        {
-            // Hier die Logik zum Hinzufügen oder Aktualisieren des Benutzers in der Datenbank
-            var parameters = new MySqlParameter[]
-            {
-            new("@p_UserID", user.Id),
-            new("@p_UserName", user.Username),
-            new("@p_DiscordName", $"{user.Username}#{user.Discriminator}"),
-            // isActive wird auf false gesetzt, da der Benutzer standardmäßig nicht aktiv ist.
-            new("@p_IsActive", false)
-            };
-
-            _ = _databaseService.ExecuteStoredProcedure("AddOrUpdateDiscordUser", parameters);
         }
 
         public Task RegisterModul(string modulename)

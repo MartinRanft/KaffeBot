@@ -9,16 +9,14 @@ using System.Threading.Tasks;
 using BCrypt.Net;
 
 using Discord;
-
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Models.TCP;
 using KaffeBot.Models.TCP.User;
-
 using MySqlConnector;
 
 using Newtonsoft.Json;
 
-namespace KaffeBot.Services.TCP.Function
+namespace KaffeBot.Services.TCP.Function.Auth
 {
     internal class AuthUser
     {
@@ -31,15 +29,15 @@ namespace KaffeBot.Services.TCP.Function
 
         public Task<UserModel?>? Authenticate(string message, string sharedKeyBase64)
         {
-            string Username = String.Empty;
-            string Password = String.Empty;
+            string Username = string.Empty;
+            string Password = string.Empty;
             byte[]? IV = null;
             byte[]? sharedKey = null;
             UserModel? User = null;
 
             CommandModel model = JsonConvert.DeserializeObject<CommandModel>(message)!;
 
-            if(model.CMDfor != null && model.CMDfor.Count != 0)
+            if (model.CMDfor != null && model.CMDfor.Count != 0)
             {
                 var firstCmd = model.CMDfor.First();
                 Username = firstCmd.User!;
@@ -50,7 +48,7 @@ namespace KaffeBot.Services.TCP.Function
 
                 Password = Decrypt(encryptedPassword, sharedKey, IV);
 
-                MySqlParameter[] parameters = 
+                MySqlParameter[] parameters =
                     [
                         new("@user_name", Username)
                     ];
@@ -59,12 +57,12 @@ namespace KaffeBot.Services.TCP.Function
                        .Cast<DataRow>()
                        .FirstOrDefault();
 
-                if(String.IsNullOrEmpty(result![0].ToString()))
+                if (string.IsNullOrEmpty(result![0].ToString()))
                 {
                     return null;
                 }
 
-                if(BCrypt.Net.BCrypt.Verify(Password, result!["Password"].ToString()))
+                if (BCrypt.Net.BCrypt.Verify(Password, result!["Password"].ToString()))
                 {
                     parameters = [];
 
@@ -90,7 +88,7 @@ namespace KaffeBot.Services.TCP.Function
         {
             string? plaintext = null;
 
-            using(Aes aesAlg = Aes.Create())
+            using (Aes aesAlg = Aes.Create())
             {
                 aesAlg.Key = Key;
                 aesAlg.IV = IV;

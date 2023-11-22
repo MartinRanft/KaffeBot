@@ -19,5 +19,6 @@ namespace KaffeBot.Models.TCP
         public string? IV { get; set; }
         public string? ServerID { get; set;}
         public string? ChannelID { get; set;}
+        public string? Data { get; set;}
     }
 }

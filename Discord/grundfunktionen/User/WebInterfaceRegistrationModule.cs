@@ -154,7 +154,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
             catch(Exception ex)
             {
                 // Logging der Ausnahme
-                Console.WriteLine(ex.ToString());
+                System.Console.WriteLine(ex.ToString());
                 await command.FollowupAsync("Ein Fehler ist aufgetreten. Bitte versuche es später erneut.", ephemeral: true);
             }
         }
@@ -201,7 +201,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
             }
             catch(Exception e)
             {
-                Console.WriteLine(e.ToString());
+                System.Console.WriteLine(e.ToString());
                 await command.FollowupAsync("Ein Fehler ist aufgetreten. Bitte versuche es später erneut.", ephemeral: true);
             }
         }
@@ -222,14 +222,14 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 string moduleNameInDB = Modules!.Rows[0]["ModuleName"]!.ToString()!;
                 if(moduleNameInDB!.Equals(modulename, StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine($"Modul ({modulename}) in DB");
+                    System.Console.WriteLine($"Modul ({modulename}) in DB");
                 }
             }
             else
             {
                 string insert = "INSERT INTO discord_module (ModuleName) VALUES (@NameModul)";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
-                Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
+                System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }
             return Task.CompletedTask;
         }

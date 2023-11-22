@@ -144,14 +144,14 @@ namespace KaffeBot.Discord.grundfunktionen.Server
                 string moduleNameInDB = Modules!.Rows[0]["ModuleName"]!.ToString()!;
                 if(moduleNameInDB!.Equals(modulename, StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine($"Modul ({modulename}) in DB");
+                    System.Console.WriteLine($"Modul ({modulename}) in DB");
                 }
             }
             else
             {
                 string insert = "INSERT INTO discord_module (ModuleName) VALUES (@NameModul)";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
-                Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
+                System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }
             return Task.CompletedTask;
         }

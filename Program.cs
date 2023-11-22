@@ -45,7 +45,7 @@ namespace KaffeBot
 #if DEBUG
                     certificate = GenerateSelfSignedCertificate();
 #else
-                    certificate = LoadCertificates("/cert/", "IhrPasswort");
+                    certificate = LoadCertificates("/cert/", configuration["Cert:Password"]!);
 
                     if (certificate == null)
 	                {

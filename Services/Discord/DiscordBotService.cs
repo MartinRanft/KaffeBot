@@ -3,6 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 
 using KaffeBot.Discord.BotOwner;
+using KaffeBot.Discord.grundfunktionen.Console;
 using KaffeBot.Discord.grundfunktionen.Server;
 using KaffeBot.Discord.grundfunktionen.User;
 using KaffeBot.Interfaces.DB;
@@ -39,12 +40,14 @@ namespace KaffeBot.Services.Discord
             _client.Log += LogAsync;
             _client.Ready += ClientReadyAsync; // Registriere den Event Handler vor dem Login
             _client.GuildAvailable += OnGuildAvailableAsync; // Event-Handler für Server-Betreten
+            _client.JoinedGuild += OnGuildAvailableAsync;
 
             // Füge Module hier hinzu, damit sie initialisiert werden können, wenn der Client bereit ist
             _modules.Add(new ServerListModule(_client, _databaseService));
             _modules.Add(new UserListModule(_client, _databaseService));
             _modules.Add(new WebInterfaceRegistrationModule(_client, _databaseService));
             _modules.Add(new AiPicToChanel(_client, _databaseService));
+            _modules.Add(new ConsoleToWeb(_client, _databaseService));
         }
 
         private async Task OnGuildAvailableAsync(SocketGuild guild)
@@ -166,7 +169,7 @@ namespace KaffeBot.Services.Discord
         {
             stoppingToken.ThrowIfCancellationRequested();
 #if !DEBUG
-            string token = _configuration["Discord:Token"];
+            string token = _configuration["Discord:Token"]!;
 #else
             string token = _configuration["Discord:TestToken"]!;
 #endif
