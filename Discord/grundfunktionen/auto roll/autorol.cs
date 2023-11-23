@@ -169,7 +169,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
         private Task SyncRolesWithDB(SocketGuild guild)
         {
             // Überprüfen, ob das Modul für diesen Server aktiv ist
-            if(!IsActive(guild.Channels.FirstOrDefault().Id, "Autorol"))
+            if(!IsActive(guild.Channels.FirstOrDefault()!.Id, "Autorol"))
                 return Task.CompletedTask;
 
             int serverDbId = GetServerDbId(guild.Id);

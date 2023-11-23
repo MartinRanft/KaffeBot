@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Reflection;
 
 using Discord;
 using Discord.Commands;
@@ -47,13 +48,21 @@ namespace KaffeBot.Services.Discord
             _client.GuildAvailable += CheckServerChannel;
             _client.JoinedGuild += OnGuildAvailableAsync;// Event-Handler für Server-Betreten
 
-            // Füge Module hier hinzu, damit sie initialisiert werden können, wenn der Client bereit ist
-            _modules.Add(new ServerListModule(_client, _databaseService));
-            _modules.Add(new UserListModule(_client, _databaseService));
-            _modules.Add(new WebInterfaceRegistrationModule(_client, _databaseService));
-            _modules.Add(new AiPicToChanel(_client, _databaseService));
-            _modules.Add(new ConsoleToWeb(_client, _databaseService));
-            _modules.Add(new Autorol(_client, _databaseService));
+            // Finden aller Typen, die IBotModule implementieren, und nicht abstrakt sind
+            var moduleTypes = Assembly.GetExecutingAssembly()
+                                      .GetTypes()
+                                      .Where(t => typeof(IBotModule).IsAssignableFrom(t) && !t.IsAbstract);
+
+            // Instanziiere jedes gefundene Modul und füge es der _modules-Liste hinzu
+            foreach(var type in moduleTypes)
+            {
+                var module = (IBotModule)Activator.CreateInstance(type, _client, _databaseService)!;
+                if(module != null)
+                {
+                    _modules.Add(module);
+                }
+            }
+
             DiscordBot = this;
         }
 

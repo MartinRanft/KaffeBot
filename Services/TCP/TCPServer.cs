@@ -49,6 +49,9 @@ namespace KaffeBot.Services.TCP
 
                     _ = Task.Run(() => HandleClient(client, _stoppingToken), cancellationToken);
                 }
+            }catch(Exception e)
+            {
+                await Console.Out.WriteLineAsync(e.Message);
             }
             finally 
             { 
