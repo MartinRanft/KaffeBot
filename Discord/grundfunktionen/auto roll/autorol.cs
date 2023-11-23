@@ -61,11 +61,16 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
         {
             client.JoinedGuild += SyncRolesWithDB;
             client.LeftGuild += DeleteRolesOfServer;
+            client.GuildAvailable += SyncRolesWithDB;
             client.RoleCreated += AddRoleOfServer;
             client.RoleUpdated += UpdateRoleOfServer;
             client.RoleDeleted += DeleteRoleOfServer;
             client.UserJoined += AddUserToRole;
 
+            foreach(var guild in client.Guilds)
+            {
+                await SyncRolesWithDB(guild);
+            }
             await RegisterModul(nameof(Autorol).ToString());
         }
 
@@ -110,7 +115,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
             int serverDbId = GetServerDbId(user.Guild.Id);
 
             // Holen Sie alle Standardrollen für diesen Server
-            string query = "SELECT RollID FROM roles WHERE ServerID = @ServerID AND IsStandart = 1";
+            string query = "SELECT RollID FROM discord_rollen WHERE ServerID = @ServerID AND IsStandart = 1";
             var roles = _databaseService.ExecuteSqlQuery(query, [new MySqlParameter("@ServerID", serverDbId)]);
 
             foreach(DataRow row in roles.Rows)
@@ -131,7 +136,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
             if(!IsActive(role.Guild.Id, "auto_roll"))
                 return Task.CompletedTask;
 
-            var deleteRoleQuery = "DELETE FROM roles WHERE RollID = @RollID";
+            var deleteRoleQuery = "DELETE FROM discord_rollen WHERE RollID = @RollID";
             _databaseService.ExecuteSqlQuery(deleteRoleQuery, [new MySqlParameter("@RollID", role.Id)]);
             return Task.CompletedTask;
         }
@@ -156,7 +161,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
             if(!IsActive(guild.Id, "auto_roll"))
                 return Task.CompletedTask;
 
-            var deleteRolesQuery = "DELETE FROM roles WHERE ServerID = @ServerID";
+            var deleteRolesQuery = "DELETE FROM discord_rollen WHERE ServerID = @ServerID";
             _databaseService.ExecuteSqlQuery(deleteRolesQuery, [new MySqlParameter("@ServerID", GetServerDbId(guild.Id))]);
             return Task.CompletedTask;
         }
@@ -164,7 +169,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
         private Task SyncRolesWithDB(SocketGuild guild)
         {
             // Überprüfen, ob das Modul für diesen Server aktiv ist
-            if(!IsActive(guild.Id, "auto_roll"))
+            if(!IsActive(guild.Channels.FirstOrDefault().Id, "Autorol"))
                 return Task.CompletedTask;
 
             int serverDbId = GetServerDbId(guild.Id);
@@ -197,7 +202,15 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
 
             var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
 
-            return (bool)rows.Rows[0]["isActive"];
+            if(rows.Rows.Count > 0)
+            {
+                return (bool)rows.Rows[0]["isActive"];
+            }
+            else
+            {
+                // Keine Daten gefunden, kehre mit einem Standardwert zurück oder handle den Fall entsprechend
+                return false;
+            }
         }
 
         public Task RegisterModul(string modulename)

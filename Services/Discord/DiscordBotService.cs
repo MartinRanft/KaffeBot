@@ -1,4 +1,6 @@
-﻿using Discord;
+﻿using System.Data;
+
+using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 
@@ -42,6 +44,7 @@ namespace KaffeBot.Services.Discord
             _client = new DiscordSocketClient(clientConfig);
             _client.Log += LogAsync;
             _client.Ready += ClientReadyAsync; // Registriere den Event Handler vor dem Login
+            _client.GuildAvailable += CheckServerChannel;
             _client.JoinedGuild += OnGuildAvailableAsync;// Event-Handler für Server-Betreten
 
             // Füge Module hier hinzu, damit sie initialisiert werden können, wenn der Client bereit ist
@@ -54,6 +57,76 @@ namespace KaffeBot.Services.Discord
             DiscordBot = this;
         }
 
+        private Task CheckServerChannel(SocketGuild guild)
+        {
+            var outParameter = new MySqlParameter
+            {
+                ParameterName = "@p_DbId",
+                MySqlDbType = MySqlDbType.Int32,
+                Direction = ParameterDirection.Output
+            };
+
+            _databaseService.ExecuteStoredProcedure("GetServerDbId",
+            [
+                new MySqlParameter("@p_ServerID", guild.Id),
+                outParameter
+            ]);
+
+            int serverInternID = Convert.ToInt32(outParameter.Value);
+
+            foreach(var channel in guild.Channels)
+            {
+                // Überprüfen, ob der Kanal in der Datenbank vorhanden ist
+                MySqlParameter[] checkChannelParameters =
+                [
+                    new MySqlParameter("@ChannelID", channel.Id)
+                ];
+                var channelResult = _databaseService.ExecuteSqlQuery("SELECT ID FROM discord_channel WHERE ChannelID = @ChannelID", checkChannelParameters);
+
+                int channelIdDb;
+                if(channelResult.Rows.Count == 0)
+                {
+                    // Füge den Kanal in die Datenbank ein
+                    MySqlParameter[] insertParameters =
+                    [
+                        new MySqlParameter("@ChannelID", channel.Id),
+                        new MySqlParameter("@ChannelName", channel.Name)
+                    ];
+                    _databaseService.ExecuteSqlQuery("INSERT INTO discord_channel (ChannelID, ChannelName) VALUES (@ChannelID, @ChannelName)", insertParameters);
+
+                    // Hole die ID des neu eingefügten Kanals
+                    channelIdDb = Convert.ToInt32(_databaseService.ExecuteSqlQuery("SELECT LAST_INSERT_ID()", []).Rows[0][0]);
+                }
+                else
+                {
+                    // Hole die ID des vorhandenen Kanals aus der Datenbank
+                    channelIdDb = Convert.ToInt32(channelResult.Rows[0]["ID"]);
+                }
+
+                // Überprüfen, ob der Eintrag in discord_server_channel bereits existiert
+                MySqlParameter[] checkServerChannelParameters =
+                [
+                    new MySqlParameter("@ServerID", serverInternID),
+                    new MySqlParameter("@ChannelID", channelIdDb)
+                ];
+                var serverChannelResult = _databaseService.ExecuteSqlQuery("SELECT ID FROM discord_server_channel WHERE ServerID = @ServerID AND ChannelID = @ChannelID", checkServerChannelParameters);
+
+                if(serverChannelResult.Rows.Count == 0)
+                {
+                    // Füge den Server-Kanal-Eintrag in die Datenbank ein, wenn er nicht existiert
+                    MySqlParameter[] serverChannelParameters =
+                    [
+                        new MySqlParameter("@ServerID", serverInternID),
+                        new MySqlParameter("@ChannelID", channelIdDb)
+                    ];
+                    _databaseService.ExecuteSqlQuery("INSERT INTO discord_server_channel (ServerID, ChannelID) VALUES (@ServerID, @ChannelID)", serverChannelParameters);
+                }
+            }
+            return Task.CompletedTask;
+        }
+
+
+
         private async Task OnGuildAvailableAsync(SocketGuild guild)
         {
             if(_isReady)
@@ -64,6 +137,7 @@ namespace KaffeBot.Services.Discord
                 {
                     await ActivateModuleAsync("ServerListModule", channel.Id); 
                 }
+                await CheckServerChannel(guild);
             }
         }
 
