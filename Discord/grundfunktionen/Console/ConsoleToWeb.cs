@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using Discord.WebSocket;
 
+using KaffeBot.Discord.grundfunktionen.auto_roll;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
 
@@ -64,7 +65,7 @@ namespace KaffeBot.Discord.grundfunktionen.Console
             return Task.CompletedTask;
         }
 
-        public Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
+        public async Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
         {
             _client.MessageReceived += MessageReceivedAsync;
             ToWeb = this;
@@ -72,7 +73,7 @@ namespace KaffeBot.Discord.grundfunktionen.Console
             // Timer einrichten, um Nachrichten alle 30 Minuten zu bereinigen
             _messageCleanupTimer = new Timer(CleanupOldMessages, null, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30));
 
-            return Task.CompletedTask;
+            await RegisterModul(nameof(ConsoleToWeb).ToString());
         }
 
         private void CleanupOldMessages(object? state)
@@ -118,7 +119,9 @@ namespace KaffeBot.Discord.grundfunktionen.Console
         {
             MySqlParameter[] parameter =
             [
-                new("@NameModul", modulename)
+                new("@NameModul", modulename),
+                new("@ServerModulIs", true),
+                new("@ChannelModulIs", false)
             ];
 
             string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
@@ -135,7 +138,7 @@ namespace KaffeBot.Discord.grundfunktionen.Console
             }
             else
             {
-                string insert = "INSERT INTO discord_module (ModuleName) VALUES (@NameModul)";
+                string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }

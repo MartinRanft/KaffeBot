@@ -3,6 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 
 using KaffeBot.Discord.BotOwner;
+using KaffeBot.Discord.grundfunktionen.auto_roll;
 using KaffeBot.Discord.grundfunktionen.Console;
 using KaffeBot.Discord.grundfunktionen.Server;
 using KaffeBot.Discord.grundfunktionen.User;
@@ -26,6 +27,8 @@ namespace KaffeBot.Services.Discord
         private bool _isReady;
         private System.Timers.Timer? _timer;
 
+        private  DiscordBotService DiscordBot { get; }
+
         public DiscordBotService(IConfiguration configuration, IDatabaseService databaseService)
         {
             var clientConfig = new DiscordSocketConfig
@@ -39,8 +42,7 @@ namespace KaffeBot.Services.Discord
             _client = new DiscordSocketClient(clientConfig);
             _client.Log += LogAsync;
             _client.Ready += ClientReadyAsync; // Registriere den Event Handler vor dem Login
-            _client.GuildAvailable += OnGuildAvailableAsync; // Event-Handler für Server-Betreten
-            _client.JoinedGuild += OnGuildAvailableAsync;
+            _client.JoinedGuild += OnGuildAvailableAsync;// Event-Handler für Server-Betreten
 
             // Füge Module hier hinzu, damit sie initialisiert werden können, wenn der Client bereit ist
             _modules.Add(new ServerListModule(_client, _databaseService));
@@ -48,6 +50,8 @@ namespace KaffeBot.Services.Discord
             _modules.Add(new WebInterfaceRegistrationModule(_client, _databaseService));
             _modules.Add(new AiPicToChanel(_client, _databaseService));
             _modules.Add(new ConsoleToWeb(_client, _databaseService));
+            _modules.Add(new Autorol(_client, _databaseService));
+            DiscordBot = this;
         }
 
         private async Task OnGuildAvailableAsync(SocketGuild guild)
@@ -184,6 +188,11 @@ namespace KaffeBot.Services.Discord
             // Blockiert diesen Task bis der Bot gestoppt wird
             await Task.Delay(Timeout.Infinite, stoppingToken);
         }
+        private Task LogAsync(LogMessage log)
+        {
+            Console.WriteLine(log.ToString());
+            return Task.CompletedTask;
+        }
 
         public override async Task StopAsync(CancellationToken stoppingToken)
         {
@@ -192,12 +201,6 @@ namespace KaffeBot.Services.Discord
             await _client.LogoutAsync();
             await _client.StopAsync();
             await base.StopAsync(stoppingToken);
-        }
-
-        private Task LogAsync(LogMessage log)
-        {
-            Console.WriteLine(log.ToString());
-            return Task.CompletedTask;
         }
 
         public async Task ActivateModuleAsync(string moduleName, ulong channelID)

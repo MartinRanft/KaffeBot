@@ -182,7 +182,9 @@ namespace KaffeBot.Discord.BotOwner
         {
             MySqlParameter[] parameter =
             [
-                new("@NameModul", modulename)
+                new("@NameModul", modulename),
+                new("@ServerModulIs", true),
+                new("@ChannelModulIs", true)
             ];
 
             string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
@@ -199,7 +201,7 @@ namespace KaffeBot.Discord.BotOwner
             }
             else
             {
-                string insert = "INSERT INTO discord_module (ModuleName) VALUES (@NameModul)";
+                string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }

@@ -99,8 +99,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
                 }
                 else
                 {
-                    // Behandeln Sie den Fall, dass der Wert negativ ist oder DBNull
-                    // Zum Beispiel: Loggen oder Fehler werfen
+
                 }
             }
         }
@@ -132,7 +131,9 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         {
             MySqlParameter[] parameter =
             [
-                new("@NameModul", modulename)
+                new("@NameModul", modulename),
+                new("@ServerModulIs", true),
+                new("@ChannelModulIs", false)
             ];
 
             string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
@@ -149,7 +150,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             }
             else
             {
-                string insert = "INSERT INTO discord_module (ModuleName) VALUES (@NameModul)";
+                string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }
