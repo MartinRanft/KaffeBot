@@ -13,6 +13,7 @@ using KaffeBot.Discord.grundfunktionen.User;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
 using KaffeBot.Services.Discord.Module;
+using KaffeBot.Services.TCP.Function.Command;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -27,6 +28,7 @@ namespace KaffeBot.Services.Discord
         private readonly IConfiguration _configuration;
         private readonly IDatabaseService _databaseService;
         private readonly List<IBotModule> _modules = [];
+        private readonly SlashCommandHandler _commandHandler;
         private bool _isReady;
         private System.Timers.Timer? _timer;
 
@@ -39,7 +41,6 @@ namespace KaffeBot.Services.Discord
                 GatewayIntents = GatewayIntents.All,
                 AlwaysDownloadUsers = true
             };
-
             _configuration = configuration;
             _databaseService = databaseService;
             _client = new DiscordSocketClient(clientConfig);
@@ -47,6 +48,7 @@ namespace KaffeBot.Services.Discord
             _client.Ready += ClientReadyAsync; // Registriere den Event Handler vor dem Login
             _client.GuildAvailable += CheckServerChannel;
             _client.JoinedGuild += OnGuildAvailableAsync;// Event-Handler für Server-Betreten
+            _commandHandler = new SlashCommandHandler(_client);
 
             // Finden aller Typen, die IBotModule implementieren, und nicht abstrakt sind
             var moduleTypes = Assembly.GetExecutingAssembly()
@@ -60,6 +62,7 @@ namespace KaffeBot.Services.Discord
                 if(module != null)
                 {
                     _modules.Add(module);
+                    module.RegisterCommandsAsync(_commandHandler).GetAwaiter().GetResult();
                 }
             }
 

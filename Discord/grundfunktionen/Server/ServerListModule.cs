@@ -2,6 +2,7 @@
 
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
+using KaffeBot.Services.Discord.Module;
 
 using Microsoft.Extensions.Configuration;
 
@@ -154,6 +155,17 @@ namespace KaffeBot.Discord.grundfunktionen.Server
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }
+            return Task.CompletedTask;
+        }
+
+        public Task RegisterCommandsAsync(SlashCommandHandler commandHandler)
+        {
+            commandHandler.RegisterModule(null, this);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleCommandAsync(SocketSlashCommand command)
+        {
             return Task.CompletedTask;
         }
     }

@@ -9,6 +9,7 @@ using Discord.WebSocket;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
 using KaffeBot.Models.Api.NAS;
+using KaffeBot.Services.Discord.Module;
 
 using Microsoft.Extensions.Configuration;
 
@@ -63,25 +64,13 @@ namespace KaffeBot.Discord.BotOwner
                 .WithDescription("AI Bilder Function")
                 .Build());
 
-            _client.SlashCommandExecuted += HandleSlashCommandAsync;
-
             await RegisterModul(nameof(AiPicToChanel).ToString());
         }
 
-        private async Task HandleSlashCommandAsync(SocketSlashCommand command)
-        {
-            switch(command.Data.Name)
-            {
-                case "ai_bilder":
-                    await SendAIPicToChannel(command);
-                    break;
-            }
-        }
 
-        [SlashCommand("ai_bilder", "AI Bilder Function")]
-        private async Task SendAIPicToChannel(SocketSlashCommand command)
+        internal async Task SendAIPicToChannel(SocketSlashCommand command)
         {
-            _ = command.DeferAsync(true);
+            _ = command.DeferAsync(false);
             var user = command.User;
             var channel = command.Channel;
 
@@ -206,6 +195,20 @@ namespace KaffeBot.Discord.BotOwner
                 Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }
             return Task.CompletedTask;
+        }
+
+        public Task RegisterCommandsAsync(SlashCommandHandler commandHandler)
+        {
+            commandHandler.RegisterModule("ai_bilder", this);
+            return Task.CompletedTask;
+        }
+
+        public async Task HandleCommandAsync(SocketSlashCommand command)
+        {
+            if(command.Data.Name == "ai_bilder")
+            {
+                await SendAIPicToChannel(command);
+            }
         }
     }
 }

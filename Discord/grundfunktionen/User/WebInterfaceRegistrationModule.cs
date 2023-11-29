@@ -1,11 +1,13 @@
 ﻿using System.Data;
 
 using Discord;
+using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
 
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
+using KaffeBot.Services.Discord.Module;
 
 using Microsoft.Extensions.Configuration;
 
@@ -35,23 +37,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 .AddOption("password", ApplicationCommandOptionType.String, "Das Password was du nun Benutzen möchtest", isRequired: true)
                 .Build());
 
-            _client.SlashCommandExecuted += HandleSlashCommandAsync;
             await RegisterModul(nameof(WebInterfaceRegistrationModule));
-        }
-
-        private async Task HandleSlashCommandAsync(SocketSlashCommand command)
-        {
-            // Überprüfen, ob der ausgeführte Befehl der ist, den dieses Modul behandelt
-            switch(command.Data.Name)
-            {
-                case "reg_webinterface":
-                    await RegisterWebInterfacePasswordAsync(command);
-                    break;
-
-                case "password_reset":
-                    await ResetWebInterfacePasswordAsync(command);
-                    break;
-            }
         }
 
         public Task Execute(CancellationToken stoppingToken)
@@ -159,7 +145,6 @@ namespace KaffeBot.Discord.grundfunktionen.User
             }
         }
 
-        [SlashCommand("password_reset", "Setzen dein Password für das WebInterface neu")]
         private async Task ResetWebInterfacePasswordAsync(SocketSlashCommand command)
         {
             await command.DeferAsync(ephemeral: true);
@@ -206,34 +191,63 @@ namespace KaffeBot.Discord.grundfunktionen.User
             }
         }
 
-        public Task RegisterModul(string modulename)
+        public async Task RegisterModul(string moduleName)
         {
-            MySqlParameter[] parameter =
-            [
-                new("@NameModul", modulename),
-                new("@ServerModulIs", true),
-                new("@ChannelModulIs", true)
-            ];
-
-            string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
-
-            var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
-
-            if(Modules.Rows.Count > 0)
+            var parameters = new MySqlParameter[]
             {
-                string moduleNameInDB = Modules!.Rows[0]["ModuleName"]!.ToString()!;
-                if(moduleNameInDB!.Equals(modulename, StringComparison.OrdinalIgnoreCase))
+                new("@NameModul", moduleName)
+            };
+
+            try
+            {
+                var modules = await Task.Run(() => _databaseService.ExecuteSqlQuery(
+                    "SELECT * FROM discord_module WHERE ModuleName = @NameModul",
+                    parameters
+                )).ConfigureAwait(false);
+
+                if(modules.Rows.Count > 0)
                 {
-                    System.Console.WriteLine($"Modul ({modulename}) in DB");
+                    System.Console.WriteLine($"Modul ({moduleName}) in DB");
+                }
+                else
+                {
+                    var insertParameters = new MySqlParameter[]
+                    {
+                        new("@NameModul", moduleName),
+                        new("@ServerModulIs", true),
+                        new("@ChannelModulIs", true)
+                    };
+
+                    await Task.Run(() => _databaseService.ExecuteSqlQuery(
+                        "INSERT INTO discord_module (ModuleName, IsServerModul, IsChannelModul) VALUES (@NameModul, @ServerModulIs, @ChannelModulIs)",
+                        insertParameters
+                    )).ConfigureAwait(false);
+
+                    System.Console.WriteLine($"Modul {moduleName} der DB hinzugefügt");
                 }
             }
-            else
+            catch(Exception ex)
             {
-                string insert = "INSERT INTO discord_module (ModuleName, IsServerModul, IsChannelModul) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
-                _databaseService.ExecuteSqlQuery(insert, parameter);
-                System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
+                System.Console.WriteLine($"An error occurred: {ex.Message}");
+                // Consider logging the full exception details and stack trace for debugging
             }
+        }
+
+        public Task RegisterCommandsAsync(SlashCommandHandler commandHandler)
+        {
+            commandHandler.RegisterModule("reg_webinterface", this);
+            commandHandler.RegisterModule("password_reset", this);
             return Task.CompletedTask;
+        }
+
+        public async Task HandleCommandAsync(SocketSlashCommand command)
+        {
+            await (command.Data.Name switch
+            {
+                "reg_webinterface" => RegisterWebInterfacePasswordAsync(command),
+                "password_reset" => ResetWebInterfacePasswordAsync(command),
+                _ => Task.CompletedTask
+            }).ConfigureAwait(false);
         }
     }
 }
