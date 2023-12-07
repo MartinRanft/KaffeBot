@@ -25,7 +25,7 @@ namespace KaffeBot
             Host.CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {
-                    // Konfigurations-Builder einrichten
+                    // Konfiguration-Builder einrichten
                     config.SetBasePath(Directory.GetCurrentDirectory()) // Definiert den Basispfad für die Konfiguration
                            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true); // Lädt die Konfigurationsdatei
                 })
@@ -45,7 +45,7 @@ namespace KaffeBot
 #if DEBUG
                     certificate = GenerateSelfSignedCertificate();
 #else
-                    certificate = LoadCertificates("/cert/", configuration["Cert:Password"]!);
+                    certificate = LoadCertificates("/cert/", configuration["TCPServer:Cert:Password"]!);
 
                     if (certificate == null)
 	                {

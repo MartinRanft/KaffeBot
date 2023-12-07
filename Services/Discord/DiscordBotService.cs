@@ -165,13 +165,13 @@ namespace KaffeBot.Services.Discord
             InitializeTimer(); // Initialisiere den Timer für regelmäßige Ausführung
 
             // Hinzufügen der channels um bestimmte Module für einen channel zu deaktivieren.
-            foreach(var Server in _client.Guilds)
+            foreach(var server in _client.Guilds)
             {
-                foreach(var Kanal in Server.TextChannels) // Annahme, dass Sie Textkanäle überprüfen wollen
+                foreach(var kanal in server.TextChannels) // Annahme, dass Sie Textkanäle überprüfen wollen
                 {
                     MySqlParameter[] parameters =
                     [
-                        new("@ChannelID", Kanal.Id)
+                        new("@ChannelID", kanal.Id)
                     ];
 
                     // Überprüfen, ob der Kanal bereits in der Datenbank ist
@@ -182,17 +182,17 @@ namespace KaffeBot.Services.Discord
                         // Kanal ist nicht in der Datenbank, also fügen Sie ihn hinzu
                         MySqlParameter[] insertParameters =
                         [
-                            new("@ChannelID", Kanal.Id),
-                            new("@ChannelName", Kanal.Name)
+                            new("@ChannelID", kanal.Id),
+                            new("@ChannelName", kanal.Name)
                         ];
 
                         string insertQuery = "INSERT INTO discord_channel (ChannelID, ChannelName) VALUES (@ChannelID, @ChannelName)";
                         _databaseService.ExecuteSqlQuery(insertQuery, insertParameters);
-                        Console.WriteLine($"Kanal {Kanal.Name} zur Datenbank hinzugefügt");
+                        Console.WriteLine($"Kanal {kanal.Name} zur Datenbank hinzugefügt");
                     }
                     else
                     {
-                        Console.WriteLine($"Kanal {Kanal.Name} bereits in der Datenbank");
+                        Console.WriteLine($"Kanal {kanal.Name} bereits in der Datenbank");
                     }
                 }
             }
@@ -208,9 +208,9 @@ namespace KaffeBot.Services.Discord
                     continue; // Wenn das Modul nicht in der Datenbank registriert ist, überspringen
                 }
 
-                foreach(var Server in _client.Guilds)
+                foreach(var server in _client.Guilds)
                 {
-                    foreach(var Kanal in Server.TextChannels)
+                    foreach(var Kanal in server.TextChannels)
                     {
                         bool isActive = checkModules.IsModuleActiveForChannel(Kanal.Id, moduleId.Value);
 

@@ -91,11 +91,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 {
                     UserStatModel model = new()
                     {
-                        DiscordID = (ulong)dataRow["DiscordUserID"],
-                        DiscordServerID = (ulong)dataRow["DiscordServerID"],
-                        Birthday = (DateTime?)dataRow["Birthday"],
-                        InternServerID = (int)dataRow["InternServerID"],
-                        DBUserID = (ulong)dataRow["InternID"],
+                        DiscordID = (long)dataRow["DiscordUserID"],
+                        DiscordServerID = (long)dataRow["DiscordServerID"],
+                        Birthday = dataRow["Birthday"] == DBNull.Value ? null : (DateTime?)dataRow["Birthday"],
+                        InternServerID = (uint)dataRow["InternServerID"],
+                        DBUserID = (uint)dataRow["InternID"],
                         ImageCount = (int)dataRow["PicCount"],
                         UrlCount = (int)dataRow["UrlCount"],
                         WordCount = (int)dataRow["WordCount"]
@@ -127,7 +127,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             if(cacheableUser.HasValue)
             {
-                ulong userId = cacheableUser.Id;
+                long userId = (long)cacheableUser.Id;
 
                 IMessageChannel channel = await cacheableChannel.GetOrDownloadAsync();
                 ulong serverId = 0;
@@ -183,9 +183,9 @@ namespace KaffeBot.Discord.grundfunktionen.User
                             addUser = new UserStatModel
                             {
                                 DiscordID = userId,
-                                DBUserID = ulong.Parse(userDataRow["ID"].ToString()!),
-                                DiscordServerID = serverId,
-                                InternServerID = serverDataRow,
+                                DBUserID = uint.Parse(userDataRow["ID"].ToString()!),
+                                DiscordServerID = (long)serverId,
+                                InternServerID = (uint)serverDataRow,
                                 UrlCount = (int)userStatRow["UrlCount"],
                                 ImageCount = (int)userStatRow["PicCount"],
                                 WordCount = (int)userStatRow["WordCount"],
@@ -197,9 +197,9 @@ namespace KaffeBot.Discord.grundfunktionen.User
                             addUser = new UserStatModel
                             {
                                 DiscordID = userId,
-                                DBUserID = ulong.Parse(userDataRow["ID"].ToString()!),
-                                DiscordServerID = serverId,
-                                InternServerID = serverDataRow,
+                                DBUserID = uint.Parse(userDataRow["ID"].ToString()!),
+                                DiscordServerID = (long)serverId,
+                                InternServerID = (uint)serverDataRow,
                                 UrlCount = 0,
                                 ImageCount = 0,
                                 WordCount = 0,
@@ -234,7 +234,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             ulong discordId = message.Author.Id;
 
-            UserStatModel userStat = UserStat.FirstOrDefault(u => u.DiscordID == discordId)!;
+            UserStatModel userStat = UserStat.FirstOrDefault(u => u.DiscordID == (long)discordId)!;
 
             if(userStat != null)
             {
@@ -247,7 +247,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
             {
                 UserStatModel newUserStat = new()
                 {
-                    DiscordID = discordId,
+                    DiscordID = (long)discordId,
                     DBUserID = 0, // Setzen Sie die DBUserID entsprechend
                     ImageCount = imageCount,
                     UrlCount = linkCount,
@@ -313,7 +313,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
             ulong ServId = command.GuildId!.Value;
 
             // Suchen Sie die Statistiken des Benutzers
-            UserStatModel? userStats = UserStat.FirstOrDefault(u => u.DiscordID == userId && u.DiscordServerID == ServId);
+            UserStatModel? userStats = UserStat.FirstOrDefault(u => u.DiscordID == (long)userId && u.DiscordServerID == (long)ServId);
 
 
             if(userStats != null)

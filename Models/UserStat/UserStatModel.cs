@@ -8,11 +8,11 @@ namespace KaffeBot.Models.UserStat
 {
     internal class UserStatModel
     {
-        public ulong DiscordID { get; set; }
-        public ulong DiscordServerID { get; set; }
+        public long DiscordID { get; set; }
+        public long DiscordServerID { get; set; }
         public DateTime? Birthday { get; set; }
-        public int InternServerID { get; set; }
-        public ulong DBUserID { get; set; }
+        public uint InternServerID { get; set; }
+        public uint DBUserID { get; set; }
         public int ImageCount { get; set; }
         public int UrlCount { get; set; }
         public int WordCount { get; set; }
