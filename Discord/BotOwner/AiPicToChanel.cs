@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using System.Data;
+using System.Net.Http.Json;
 using System.Threading.Channels;
 
 using Discord;
@@ -29,9 +30,9 @@ namespace KaffeBot.Discord.BotOwner
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", true)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -43,9 +44,9 @@ namespace KaffeBot.Discord.BotOwner
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", false)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -68,23 +69,23 @@ namespace KaffeBot.Discord.BotOwner
         }
 
 
-        internal async Task SendAIPicToChannel(SocketSlashCommand command)
+        private async Task SendAiPicToChannel(SocketInteraction command)
         {
             _ = command.DeferAsync(false);
-            var user = command.User;
-            var channel = command.Channel;
+            SocketUser? user = command.User;
+            ISocketMessageChannel? channel = command.Channel;
 
             if(IsActive(channel.Id,GetType().Name))
             {
                 HttpClient client = new();
-                var apiBase = "https://api.bytewizards.de/";
+                const string apiBase = "https://api.bytewizards.de/";
 
                 MySqlParameter[] parameter =
                 [
-                new("@user_id", user.Id),
+                new MySqlParameter("@user_id", user.Id),
                 ];
 
-                var UserData = _databaseService.ExecuteStoredProcedure("GetDiscordUserDetails", parameter);
+                DataTable UserData = _databaseService.ExecuteStoredProcedure("GetDiscordUserDetails", parameter);
 
                 if(UserData.Rows.Count > 0 && (bool)UserData.Rows[0]["isAdmin"])
                 {
@@ -120,11 +121,11 @@ namespace KaffeBot.Discord.BotOwner
 
                         if(channel is SocketTextChannel)
                         {
-                            foreach(var file in data!)
+                            foreach(FtpDataModel file in data!)
                             {
-                                using var ms = new MemoryStream(file.Data!);
+                                using MemoryStream ms = new(file.Data!);
                                 // Der Name der Datei, die an Discord gesendet wird
-                                var fileName = file.FileName;
+                                string? fileName = file.FileName;
                                 // Sende die Datei im Discord-Kanal
                                 await channel.SendFileAsync(ms, fileName);
                             }
@@ -152,8 +153,8 @@ namespace KaffeBot.Discord.BotOwner
 
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName)
             ];
 
             string getActive = "" +
@@ -162,7 +163,7 @@ namespace KaffeBot.Discord.BotOwner
                 " WHERE ChannelID = @IDChannel" +
                 " AND ModuleName = @NameModul;";
 
-            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+            DataTable rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
 
             return (bool)rows.Rows[0]["isActive"];
         }
@@ -171,14 +172,14 @@ namespace KaffeBot.Discord.BotOwner
         {
             MySqlParameter[] parameter =
             [
-                new("@NameModul", modulename),
-                new("@ServerModulIs", true),
-                new("@ChannelModulIs", true)
+                new MySqlParameter("@NameModul", modulename),
+                new MySqlParameter("@ServerModulIs", true),
+                new MySqlParameter("@ChannelModulIs", true)
             ];
 
-            string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
+            const string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
 
-            var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
+            DataTable Modules = _databaseService.ExecuteSqlQuery(query, parameter);
 
             if(Modules.Rows.Count > 0)
             {
@@ -190,7 +191,7 @@ namespace KaffeBot.Discord.BotOwner
             }
             else
             {
-                string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
+                const string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }
@@ -207,7 +208,7 @@ namespace KaffeBot.Discord.BotOwner
         {
             if(command.Data.Name == "ai_bilder")
             {
-                await SendAIPicToChannel(command);
+                await SendAiPicToChannel(command);
             }
         }
     }

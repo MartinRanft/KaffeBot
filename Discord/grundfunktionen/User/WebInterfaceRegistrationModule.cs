@@ -50,9 +50,9 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", true)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -64,9 +64,9 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", false)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -78,23 +78,23 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleNam)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleNam)
             ];
 
-            string getActive = "" +
-                "SELECT isActive " +
-                " FROM view_channel_module_status " +
-                " WHERE ChannelID = @IDChannel" +
-                " AND ModuleName = @NameModul;";
+            const string getActive = "" +
+                                     "SELECT isActive " +
+                                     " FROM view_channel_module_status " +
+                                     " WHERE ChannelID = @IDChannel" +
+                                     " AND ModuleName = @NameModul;";
 
-            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+            DataTable rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
 
             return (bool)rows.Rows[0]["isActive"];
         }
 
         [SlashCommand("reg_webinterface", "Registriert ein Passwort für das Webinterface.")]
-        public async Task RegisterWebInterfacePasswordAsync(SocketSlashCommand command)
+        private async Task RegisterWebInterfacePasswordAsync(SocketSlashCommand command)
         {
             await command.DeferAsync(ephemeral: true);
             ulong userId = command.User.Id;
@@ -103,17 +103,17 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             MySqlParameter[] parameters =
             [
-                new("@DiscordUserID", userId),
-                new("@hashedPassword", hashedPassword)
+                new MySqlParameter("@DiscordUserID", userId),
+                new MySqlParameter("@hashedPassword", hashedPassword)
             ];
 
             try
             {
-                string query = "SELECT * FROM discord_user WHERE UserID = @DiscordID ";
+                const string query = "SELECT * FROM discord_user WHERE UserID = @DiscordID ";
 
                 MySqlParameter[] userpara =
                 [
-                    new("@DiscordID", userId)
+                    new MySqlParameter("@DiscordID", userId)
                 ];
 
                 DataTable userData = _databaseService.ExecuteSqlQuery(query, userpara);
@@ -134,7 +134,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 }
                 else
                 {
-                    await command.FollowupAsync(@"Du hast dich Bereits regestriert für das WebInterface. Bitte Nutze /password_reset");
+                    await command.FollowupAsync(@"Du hast dich Bereits registriert für das WebInterface. Bitte Nutze /password_reset");
                 }
             }
             catch(Exception ex)
@@ -154,11 +154,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             try
             {
-                string query = "SELECT * FROM discord_user WHERE UserID = @DiscordID ";
+                const string query = "SELECT * FROM discord_user WHERE UserID = @DiscordID ";
 
                 MySqlParameter[] userpara =
                 [
-                    new("@DiscordID", userId)
+                    new MySqlParameter("@DiscordID", userId)
                 ];
 
                 DataTable userData = _databaseService.ExecuteSqlQuery(query, userpara);
@@ -167,8 +167,8 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 {
                     MySqlParameter[] parameters =
                     [
-                        new("@DiscordUserID", userId),
-                        new("@hashedPassword", hashedPassword)
+                        new MySqlParameter("@DiscordUserID", userId),
+                        new MySqlParameter("@hashedPassword", hashedPassword)
                     ];
 
                     DataTable rowsAffected = _databaseService.ExecuteStoredProcedure("SetUserPassword", parameters);
@@ -193,14 +193,13 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
         public async Task RegisterModul(string moduleName)
         {
-            var parameters = new MySqlParameter[]
-            {
-                new("@NameModul", moduleName)
-            };
+            MySqlParameter[] parameters = [
+                new MySqlParameter("@NameModul", moduleName)
+            ];
 
             try
             {
-                var modules = await Task.Run(() => _databaseService.ExecuteSqlQuery(
+                DataTable modules = await Task.Run(() => _databaseService.ExecuteSqlQuery(
                     "SELECT * FROM discord_module WHERE ModuleName = @NameModul",
                     parameters
                 )).ConfigureAwait(false);
@@ -211,12 +210,12 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 }
                 else
                 {
-                    var insertParameters = new MySqlParameter[]
-                    {
-                        new("@NameModul", moduleName),
-                        new("@ServerModulIs", true),
-                        new("@ChannelModulIs", true)
-                    };
+                    MySqlParameter[] insertParameters =
+                    [
+                        new MySqlParameter("@NameModul", moduleName),
+                        new MySqlParameter("@ServerModulIs", true),
+                        new MySqlParameter("@ChannelModulIs", true)
+                    ];
 
                     await Task.Run(() => _databaseService.ExecuteSqlQuery(
                         "INSERT INTO discord_module (ModuleName, IsServerModul, IsChannelModul) VALUES (@NameModul, @ServerModulIs, @ChannelModulIs)",

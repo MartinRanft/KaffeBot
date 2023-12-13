@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,30 +18,31 @@ using MySqlConnector;
 
 namespace KaffeBot.Discord.grundfunktionen.Console
 {
-    internal class ConsoleToWeb(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
+    internal abstract class ConsoleToWeb(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
         private readonly IDatabaseService _databaseService = databaseService;
         private readonly DiscordSocketClient _client = client;
         public event Action<List<SocketMessage>>? OnNewMessages;
-        private List<SocketMessage> _recentMessages = [];
+
         private Timer? _messageCleanupTimer;
         public bool ShouldExecuteRegularly { get; set; } = false;
 
-        public List<SocketMessage> SocketMessages { get => _recentMessages; }
+        public List<SocketMessage> SocketMessages { get; private set; } = [];
+
         public static ConsoleToWeb? ToWeb { get; set; }
 
         private void NotifyNewMessages()
         {
-            OnNewMessages?.Invoke(_recentMessages);
+            OnNewMessages?.Invoke(SocketMessages);
         }
 
         public Task ActivateAsync(ulong channelId, string moduleName)
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", true)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -52,9 +54,9 @@ namespace KaffeBot.Discord.grundfunktionen.Console
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", false)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -79,18 +81,18 @@ namespace KaffeBot.Discord.grundfunktionen.Console
 
         private void CleanupOldMessages(object? state)
         {
-            var threshold = DateTime.UtcNow.AddMinutes(-30);
-            lock(_recentMessages)
+            DateTime threshold = DateTime.UtcNow.AddMinutes(-30);
+            lock(SocketMessages)
             {
-                _recentMessages = _recentMessages.Where(msg => msg.Timestamp.UtcDateTime > threshold).ToList();
+                SocketMessages = SocketMessages.Where(msg => msg.Timestamp.UtcDateTime > threshold).ToList();
             }
         }
 
         private Task MessageReceivedAsync(SocketMessage message)
         {
-            lock(_recentMessages)
+            lock(SocketMessages)
             {
-                _recentMessages.Add(message);
+                SocketMessages.Add(message);
             }
 
             NotifyNewMessages();
@@ -101,17 +103,17 @@ namespace KaffeBot.Discord.grundfunktionen.Console
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName)
             ];
 
-            string getActive = "" +
-                "SELECT isActive " +
-                " FROM view_channel_module_status " +
-                " WHERE ChannelID = @IDChannel" +
-                " AND ModuleName = @NameModul;";
+            const string getActive = "" +
+                                     "SELECT isActive " +
+                                     " FROM view_channel_module_status " +
+                                     " WHERE ChannelID = @IDChannel" +
+                                     " AND ModuleName = @NameModul;";
 
-            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+            DataTable rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
 
             return (bool)rows.Rows[0]["isActive"];
         }
@@ -120,14 +122,14 @@ namespace KaffeBot.Discord.grundfunktionen.Console
         {
             MySqlParameter[] parameter =
             [
-                new("@NameModul", modulename),
-                new("@ServerModulIs", true),
-                new("@ChannelModulIs", false)
+                new MySqlParameter("@NameModul", modulename),
+                new MySqlParameter("@ServerModulIs", true),
+                new MySqlParameter("@ChannelModulIs", false)
             ];
 
-            string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
+            const string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
 
-            var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
+            DataTable Modules = _databaseService.ExecuteSqlQuery(query, parameter);
 
             if(Modules.Rows.Count > 0)
             {
@@ -139,7 +141,7 @@ namespace KaffeBot.Discord.grundfunktionen.Console
             }
             else
             {
-                string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
+                const string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }

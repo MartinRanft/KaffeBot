@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 
 namespace KaffeBot.Models.WSS
 {
-    internal class CommandModel
+    internal abstract class CommandModel
     {
         public string? Command { get; set; }
         public List<ServerObject>? CMDfor { get; set; }
     }
 
-    public class ServerObject
+    internal abstract class ServerObject
     {
         public string? User {  get; set; }
         public string? Password { get; set; }

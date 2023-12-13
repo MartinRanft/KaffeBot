@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace KaffeBot.Models.WSS.User
 {
-    internal class UserModel
+    internal abstract class UserModel
     {
         public ulong DiscordID { get; set; }
         public required string DiscordName { get; set; }

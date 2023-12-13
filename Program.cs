@@ -13,11 +13,11 @@ using Microsoft.Extensions.Hosting;
 
 namespace KaffeBot
 {
-    internal class Program
+    internal static class Program
     {
         public static async Task Main(string[] args)
         {
-            var host = CreateHostBuilder(args).Build();
+            IHost host = CreateHostBuilder(args).Build();
             await host.RunAsync();
         }
 
@@ -32,7 +32,7 @@ namespace KaffeBot
                 .ConfigureServices((hostContext, services) =>
                 {
                     // Konfiguration laden
-                    var configuration = hostContext.Configuration;
+                    IConfiguration configuration = hostContext.Configuration;
 
                     // Datenbankservice hinzufügen
                     services.AddSingleton<IDatabaseService, DatabaseService>();
@@ -54,19 +54,19 @@ namespace KaffeBot
 	                }
 #endif
 
-                    services.AddHostedService<TCPServer>(provider =>
-                        new TCPServer(8080, certificate, provider.GetRequiredService<IDatabaseService>()));
+                    services.AddHostedService<TcpServer>(provider =>
+                        new TcpServer(8080, certificate, provider.GetRequiredService<IDatabaseService>()));
                 });
 
-        public static X509Certificate2 GenerateSelfSignedCertificate()
+        private static X509Certificate2 GenerateSelfSignedCertificate()
         {
             using RSA rsa = RSA.Create(2048);
-            var request = new CertificateRequest("cn=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            CertificateRequest request = new("cn=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
 
             request.CertificateExtensions.Add(
                 new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
 
-            var certificate = request.CreateSelfSigned(DateTimeOffset.Now, DateTimeOffset.Now.AddYears(1));
+            X509Certificate2 certificate = request.CreateSelfSigned(DateTimeOffset.Now, DateTimeOffset.Now.AddYears(1));
 
             // Exportieren Sie das Zertifikat mit einem privaten Schlüssel und einem optionalen Passwort
             return new X509Certificate2(certificate.Export(X509ContentType.Pfx, "testpassword"), "testpassword", X509KeyStorageFlags.DefaultKeySet);
@@ -75,7 +75,7 @@ namespace KaffeBot
         public static X509Certificate2? LoadCertificates(string directoryPath, string password)
         {
             X509Certificate2? certificate = null;
-            var directoryInfo = new DirectoryInfo(directoryPath);
+            DirectoryInfo directoryInfo = new(directoryPath);
             FileInfo[] files = directoryInfo.GetFiles("*.pfx"); // Annahme, dass es sich um .pfx-Dateien handelt
 
             foreach(FileInfo file in files)
@@ -86,9 +86,9 @@ namespace KaffeBot
                     Console.WriteLine($"Zertifikat geladen: {certificate.Subject}");
                     // Hier können Sie zusätzliche Aktionen mit dem geladenen Zertifikat durchführen
                 }
-                catch(Exception)
+                catch (Exception)
                 {
-
+                    // ignored
                 }
             }
 

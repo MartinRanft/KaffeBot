@@ -9,18 +9,18 @@ using KaffeBot.Interfaces.Discord;
 
 namespace KaffeBot.Services.Discord.Module
 {
-    public class SlashCommandHandler
+    public sealed class SlashCommandHandler
     {
         private readonly DiscordSocketClient _client;
         private readonly Dictionary<string, IBotModule> _commandModules = [];
 
-        public SlashCommandHandler(DiscordSocketClient client)
+        internal SlashCommandHandler(DiscordSocketClient client)
         {
             _client = client;
             _client.SlashCommandExecuted += HandleSlashCommandAsync;
         }
 
-        public void RegisterModule(string? command, IBotModule module)
+        internal void RegisterModule(string? command, IBotModule module)
         {
             if(!string.IsNullOrEmpty(command))
             {
@@ -30,7 +30,7 @@ namespace KaffeBot.Services.Discord.Module
 
         private async Task HandleSlashCommandAsync(SocketSlashCommand command)
         {
-            if(_commandModules.TryGetValue(command.Data.Name, out var module))
+            if(_commandModules.TryGetValue(command.Data.Name, out IBotModule? module))
             {
                 await module.HandleCommandAsync(command);
             }

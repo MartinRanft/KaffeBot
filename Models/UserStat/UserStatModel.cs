@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace KaffeBot.Models.UserStat
 {
-    internal class UserStatModel
+    internal sealed class UserStatModel
     {
         public long DiscordID { get; set; }
         public long DiscordServerID { get; set; }

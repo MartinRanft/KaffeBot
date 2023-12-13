@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 
 namespace KaffeBot.Models.TCP
 {
-    internal class CommandModel
+    internal sealed class CommandModel
     {
         public string? Command { get; set; }
-        public List<ServerObject>? CMDfor { get; set; }
+        public List<ServerObject>? CmDfor { get; init; }
     }
 
-    public class ServerObject
+    internal sealed class ServerObject
     {
         public string? User {  get; set; }
         public string? Password { get; set; }

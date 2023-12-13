@@ -25,7 +25,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
     {
         private readonly DiscordSocketClient _client = client;
         private readonly IDatabaseService _databaseService = databaseService;
-        private List<UserStatModel> UserStat = [];
+        private readonly List<UserStatModel> _userStat = [];
         private Timer? _syncTimer;
 
         public bool ShouldExecuteRegularly { get; set; } = false;
@@ -34,9 +34,9 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", true)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -48,9 +48,9 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", false)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -81,60 +81,61 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
         private Task LoadStatData()
         {
-            string query = "SELECT * FROM `discord_user_stat_view`";
+            const string query = "SELECT * FROM `discord_user_stat_view`";
 
             DataTable data = _databaseService.ExecuteSqlQuery(query, []);
 
-            if(data.Rows.Count > 0)
+            if(data.Rows.Count <= 0)
             {
-                foreach(DataRow dataRow in data.Rows)
+                return Task.CompletedTask;
+            }
+            
+            foreach(DataRow dataRow in data.Rows)
+            {
+                UserStatModel model = new()
                 {
-                    UserStatModel model = new()
-                    {
-                        DiscordID = (long)dataRow["DiscordUserID"],
-                        DiscordServerID = (long)dataRow["DiscordServerID"],
-                        Birthday = dataRow["Birthday"] == DBNull.Value ? null : (DateTime?)dataRow["Birthday"],
-                        InternServerID = (uint)dataRow["InternServerID"],
-                        DBUserID = (uint)dataRow["InternID"],
-                        ImageCount = (int)dataRow["PicCount"],
-                        UrlCount = (int)dataRow["UrlCount"],
-                        WordCount = (int)dataRow["WordCount"]
-                    };
-                    UserStat.Add(model);
-                }
+                    DiscordID = (long)dataRow["DiscordUserID"],
+                    DiscordServerID = (long)dataRow["DiscordServerID"],
+                    Birthday = dataRow["Birthday"] == DBNull.Value ? null : (DateTime?)dataRow["Birthday"],
+                    InternServerID = (uint)dataRow["InternServerID"],
+                    DBUserID = (uint)dataRow["InternID"],
+                    ImageCount = (int)dataRow["PicCount"],
+                    UrlCount = (int)dataRow["UrlCount"],
+                    WordCount = (int)dataRow["WordCount"]
+                };
+                _userStat.Add(model);
             }
             return Task.CompletedTask;
         }
 
         private void SyncWithDatabase(object? state)
         {
-            foreach(UserStatModel UserStat in UserStat)
+            foreach(MySqlParameter[] insertData in _userStat.Select(userStat => (MySqlParameter[])[
+                        new MySqlParameter("@p_UserID", userStat.DBUserID),
+                        new MySqlParameter("p_DiscordServer", userStat.InternServerID),
+                        new MySqlParameter("p_WordCount", userStat.WordCount),
+                        new MySqlParameter("p_PicCount", userStat.ImageCount),
+                        new MySqlParameter("p_UrlCount", userStat.UrlCount),
+                        new MySqlParameter("p_Birthday", userStat.Birthday)
+                    ]))
             {
-                MySqlParameter[] insertData = [
-                    new("@p_UserID", UserStat.DBUserID),
-                    new("p_DiscordServer", UserStat.InternServerID),
-                    new("p_WordCount", UserStat.WordCount),
-                    new("p_PicCount", UserStat.ImageCount),
-                    new("p_UrlCount", UserStat.UrlCount),
-                    new("p_Birthday", UserStat.Birthday)
-                    ];
-
                 _ = _databaseService.ExecuteStoredProcedure("UpdateOrInsertUserStat", insertData);
             }
         }
 
         private async Task AddUserToStat(Cacheable<IUser, ulong> cacheableUser, Cacheable<IMessageChannel, ulong> cacheableChannel)
         {
+            
             if(cacheableUser.HasValue)
             {
                 long userId = (long)cacheableUser.Id;
 
                 IMessageChannel channel = await cacheableChannel.GetOrDownloadAsync();
-                ulong serverId = 0;
+                long serverId = 0;
 
                 if(channel is SocketGuildChannel guildChannel)
                 {
-                    serverId = guildChannel.Guild.Id;
+                    serverId = (long)guildChannel.Guild.Id;
                 }
                 else
                 {
@@ -142,8 +143,8 @@ namespace KaffeBot.Discord.grundfunktionen.User
                     return;
                 }
 
-                var existingUserStat = UserStat.FirstOrDefault(u => u.DiscordID == userId);
-                if(existingUserStat != null)
+                UserStatModel? existingUserStat = _userStat.FirstOrDefault(u => u.DiscordID == userId);
+                if(existingUserStat != null &&  existingUserStat.DiscordServerID == serverId)
                 {
                     return;
                 }
@@ -153,7 +154,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 {
                     DataRow userDataRow = userData.Rows[0];
 
-                    var outParameter = new MySqlParameter
+                    MySqlParameter outParameter = new()
                     {
                         ParameterName = "@p_DbId",
                         MySqlDbType = MySqlDbType.Int32,
@@ -173,7 +174,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
                             new MySqlParameter("@internServer", serverDataRow)
                         ];
 
-                        string query = "SELECT * FROM discord_user_static WHERE UserID = @internID AND DiscordServer = @internServer";
+                        const string query = "SELECT * FROM discord_user_static WHERE UserID = @internID AND DiscordServer = @internServer";
                         DataTable userStatTable = _databaseService.ExecuteSqlQuery(query, userstatParameters);
 
                         UserStatModel addUser;
@@ -207,7 +208,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
                             };
                         }
 
-                        UserStat.Add(addUser);
+                        _userStat.Add(addUser);
                     }
                     else
                     {
@@ -223,18 +224,25 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
         private Task StatGenerating(SocketMessage message)
         {
-            if(message.Author.IsBot)
+            if(message.Author.IsBot && message.Channel is not SocketGuildChannel)
             {
                 return Task.CompletedTask;
             }
 
+            long discordServerId = 0;
+
+            if(message.Channel is SocketGuildChannel guildChannel)
+            {
+                discordServerId = (long)guildChannel.Guild.Id;
+            }
+
             int linkCount = CountLink(message.Content);
-            int imageCount = message.Attachments.Count(att => IsImage(att));
+            int imageCount = message.Attachments.Count(IsImage);
             int WordCount = CountWords(message.Content);
 
             ulong discordId = message.Author.Id;
 
-            UserStatModel userStat = UserStat.FirstOrDefault(u => u.DiscordID == (long)discordId)!;
+            UserStatModel userStat = _userStat.FirstOrDefault(u => u.DiscordID == (long)discordId && u.DiscordServerID == discordServerId)!;
 
             if(userStat != null)
             {
@@ -255,31 +263,22 @@ namespace KaffeBot.Discord.grundfunktionen.User
                     Birthday = null
                 };
 
-                UserStat.Add(newUserStat);
+                _userStat.Add(newUserStat);
             }
             return Task.CompletedTask;
         }
 
-        private int CountWords(string content)
+        private static int CountWords(string content)
         {
             string contentWithoutUrls = UrlRegEx().Replace(content, "");
 
             char[] delimiters = [' ', '\r', '\n', '\t'];
             string[] words = contentWithoutUrls.Split(delimiters, StringSplitOptions.RemoveEmptyEntries);
 
-            int WordCount = 0;
-
-            foreach(string word in words)
-            {
-                if(word.Length > 1)
-                {
-                    WordCount++;
-                }
-            }
-            return WordCount;
+            return words.Count(word => word.Length > 1);
         }
 
-        private bool IsImage(global::Discord.Attachment attachment)
+        private static bool IsImage(global::Discord.Attachment attachment)
         {
             return attachment.Filename.EndsWith(".png") ||
             attachment.Filename.EndsWith(".jpg") ||
@@ -289,10 +288,10 @@ namespace KaffeBot.Discord.grundfunktionen.User
             attachment.Filename.EndsWith(".gif");
         }
 
-        private int CountLink(string content)
+        private static int CountLink(string content)
         {
-            var urlRegex = UrlRegEx();
-            var matches = urlRegex.Matches(content);
+            Regex urlRegex = UrlRegEx();
+            MatchCollection matches = urlRegex.Matches(content);
             return matches.Count;
         }
 
@@ -306,31 +305,31 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 }).ConfigureAwait(false);
         }
 
-        private async Task SendUserStatsToDiscord(SocketSlashCommand command)
+        private async Task SendUserStatsToDiscord(SocketInteraction command)
         {
             // Identifizieren Sie die Discord-ID des Benutzers, der den Befehl ausgelöst hat
             ulong userId = command.User.Id;
             ulong ServId = command.GuildId!.Value;
 
             // Suchen Sie die Statistiken des Benutzers
-            UserStatModel? userStats = UserStat.FirstOrDefault(u => u.DiscordID == (long)userId && u.DiscordServerID == (long)ServId);
+            UserStatModel? userStats = _userStat.FirstOrDefault(u => u.DiscordID == (long)userId && u.DiscordServerID == (long)ServId);
 
 
             if(userStats != null)
             {
                 // Formatieren Sie die Nachricht
-                var statsMessage = $"**Deine Statistiken:**\n" +
-                                   $"- Wörter gezählt: {userStats.WordCount}\n" +
-                                   $"- Bilder gepostet: {userStats.ImageCount}\n" +
-                                   $"- URLs geteilt: {userStats.UrlCount}";
+                string statsMessage = $"**Deine Statistiken:**\n" +
+                                      $"- Wörter gezählt: {userStats.WordCount}\n" +
+                                      $"- Bilder gepostet: {userStats.ImageCount}\n" +
+                                      $"- URLs geteilt: {userStats.UrlCount}";
 
                 // Erstellen Sie eine Embed-Nachricht für bessere Formatierung
-                var embed = new EmbedBuilder()
-                    .WithTitle("Deine Statistiken")
-                    .WithDescription(statsMessage)
-                    .WithCurrentTimestamp()
-                    .WithColor(Color.Gold)
-                    .Build();
+                Embed? embed = new EmbedBuilder()
+                               .WithTitle("Deine Statistiken")
+                               .WithDescription(statsMessage)
+                               .WithCurrentTimestamp()
+                               .WithColor(Color.Gold)
+                               .Build();
 
                 // Senden Sie die Nachricht an den Benutzer
                 await command.RespondAsync(embed: embed, ephemeral: true); // Ephemeral bedeutet, dass nur der anfragende Benutzer die Antwort sieht
@@ -347,17 +346,17 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName)
             ];
 
-            string getActive = "" +
-                "SELECT isActive " +
-                " FROM view_channel_module_status " +
-                " WHERE ChannelID = @IDChannel" +
-                " AND ModuleName = @NameModul;";
+            const string getActive = "" +
+                                     "SELECT isActive " +
+                                     " FROM view_channel_module_status " +
+                                     " WHERE ChannelID = @IDChannel" +
+                                     " AND ModuleName = @NameModul;";
 
-            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+            DataTable rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
 
             if(rows.Rows.Count > 0)
             {
@@ -374,14 +373,14 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             MySqlParameter[] parameter =
             [
-                new("@NameModul", modulename),
-                new("@ServerModulIs", true),
-                new("@ChannelModulIs", false)
+                new MySqlParameter("@NameModul", modulename),
+                new MySqlParameter("@ServerModulIs", true),
+                new MySqlParameter("@ChannelModulIs", false)
             ];
 
-            string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
+            const string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
 
-            var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
+            DataTable Modules = _databaseService.ExecuteSqlQuery(query, parameter);
 
             if(Modules.Rows.Count > 0)
             {
@@ -393,7 +392,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
             }
             else
             {
-                string insert = "INSERT INTO discord_module (ModuleName, IsServerModul, IsChannelModul) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
+                const string insert = "INSERT INTO discord_module (ModuleName, IsServerModul, IsChannelModul) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }

@@ -7,7 +7,7 @@ using KaffeBot.Services.TCP.Function.Command.Functions;
 
 namespace KaffeBot.Services.TCP.Function.Command
 {
-    internal class CommandHandler(SslStream stream, byte[] sharedKey, TcpClient client) : TCPServerBase
+    internal sealed class CommandHandler(SslStream stream, byte[] sharedKey, TcpClient client) : TCPServerBase
     {
         private readonly SslStream _stream = stream;
         private readonly byte[] _sharedKey = sharedKey;
@@ -18,7 +18,7 @@ namespace KaffeBot.Services.TCP.Function.Command
             switch(command)
             {
                 case "Console":
-                    var consoleHandler = new ConsoleMessageHandler(_stream, _sharedKey, _tcpClient);
+                    ConsoleMessageHandler consoleHandler = new(_stream, _sharedKey, _tcpClient);
                     _ = consoleHandler.SendConsole(cancellationToken);
                     break;
                 default:

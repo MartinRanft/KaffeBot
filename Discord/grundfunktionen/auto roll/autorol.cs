@@ -30,9 +30,9 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", true)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -44,9 +44,9 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", false)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -68,7 +68,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
             client.RoleDeleted += DeleteRoleOfServer;
             client.UserJoined += AddUserToRole;
 
-            foreach(var guild in client.Guilds)
+            foreach(SocketGuild? guild in client.Guilds)
             {
                 await SyncRolesWithDB(guild);
             }
@@ -93,7 +93,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
 
         private int GetServerDbId(ulong id)
         {
-            var outParameter = new MySqlParameter
+            MySqlParameter outParameter = new()
             {
                 ParameterName = "@p_DbId",
                 MySqlDbType = MySqlDbType.Int32,
@@ -116,13 +116,13 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
             int serverDbId = GetServerDbId(user.Guild.Id);
 
             // Holen Sie alle Standardrollen für diesen Server
-            string query = "SELECT RollID FROM discord_rollen WHERE ServerID = @ServerID AND IsStandart = 1";
-            var roles = _databaseService.ExecuteSqlQuery(query, [new MySqlParameter("@ServerID", serverDbId)]);
+            const string query = "SELECT RollID FROM discord_rollen WHERE ServerID = @ServerID AND IsStandart = 1";
+            DataTable roles = _databaseService.ExecuteSqlQuery(query, [new MySqlParameter("@ServerID", serverDbId)]);
 
             foreach(DataRow row in roles.Rows)
             {
                 ulong roleId = Convert.ToUInt64(row["RollID"]);
-                var role = user.Guild.GetRole(roleId);
+                SocketRole? role = user.Guild.GetRole(roleId);
 
                 if(role != null)
                 {
@@ -137,7 +137,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
             if(!IsActive(role.Guild.Id, "auto_roll"))
                 return Task.CompletedTask;
 
-            var deleteRoleQuery = "DELETE FROM discord_rollen WHERE RollID = @RollID";
+            const string deleteRoleQuery = "DELETE FROM discord_rollen WHERE RollID = @RollID";
             _databaseService.ExecuteSqlQuery(deleteRoleQuery, [new MySqlParameter("@RollID", role.Id)]);
             return Task.CompletedTask;
         }
@@ -162,7 +162,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
             if(!IsActive(guild.Id, "auto_roll"))
                 return Task.CompletedTask;
 
-            var deleteRolesQuery = "DELETE FROM discord_rollen WHERE ServerID = @ServerID";
+            const string deleteRolesQuery = "DELETE FROM discord_rollen WHERE ServerID = @ServerID";
             _databaseService.ExecuteSqlQuery(deleteRolesQuery, [new MySqlParameter("@ServerID", GetServerDbId(guild.Id))]);
             return Task.CompletedTask;
         }
@@ -175,7 +175,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
 
             int serverDbId = GetServerDbId(guild.Id);
 
-            foreach(var role in guild.Roles)
+            foreach(SocketRole? role in guild.Roles)
             {
                 // Aufrufen der gespeicherten Prozedur
                 _databaseService.ExecuteStoredProcedure("UpsertRole", [
@@ -191,17 +191,17 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName)
             ];
 
-            string getActive = "" +
-                "SELECT isActive " +
-                " FROM view_channel_module_status " +
-                " WHERE ChannelID = @IDChannel" +
-                " AND ModuleName = @NameModul;";
+            const string getActive = "" +
+                                     "SELECT isActive " +
+                                     " FROM view_channel_module_status " +
+                                     " WHERE ChannelID = @IDChannel" +
+                                     " AND ModuleName = @NameModul;";
 
-            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+            DataTable rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
 
             if(rows.Rows.Count > 0)
             {
@@ -218,14 +218,14 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
         {
             MySqlParameter[] parameter =
             [
-                new("@NameModul", modulename),
-                new("@ServerModulIs", true),
-                new("@ChannelModulIs", false)
+                new MySqlParameter("@NameModul", modulename),
+                new MySqlParameter("@ServerModulIs", true),
+                new MySqlParameter("@ChannelModulIs", false)
             ];
 
-            string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
+            const string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
 
-            var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
+            DataTable Modules = _databaseService.ExecuteSqlQuery(query, parameter);
 
             if(Modules.Rows.Count > 0)
             {
@@ -237,7 +237,7 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
             }
             else
             {
-                string insert = "INSERT INTO discord_module (ModuleName, IsServerModul, IsChannelModul) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
+                const string insert = "INSERT INTO discord_module (ModuleName, IsServerModul, IsChannelModul) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }

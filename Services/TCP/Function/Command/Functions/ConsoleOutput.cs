@@ -12,21 +12,25 @@ using Newtonsoft.Json;
 
 namespace KaffeBot.Services.TCP.Function.Command.Functions
 {
-    internal class ConsoleOutput
+    internal abstract class ConsoleOutput
     {
         public static Task<string> SendToWeb()
         {
-            List<SocketMessage> messges = ConsoleToWeb.ToWeb!.SocketMessages!;
+            List<SocketMessage> messages = ConsoleToWeb.ToWeb!.SocketMessages!;
 
-            string Jsonstring = JsonConvert.SerializeObject(messges);
+            string jsonstring = JsonConvert.SerializeObject(messages);
 
             CommandModel model = new()
             {
                 Command = "ConsoleOutput",
-                CMDfor = []
+                CmDfor =
+                [
+                    new ServerObject()
+                    {
+                        Data = jsonstring
+                    }
+                ]
             };
-
-            model.CMDfor.Add(new ServerObject() { Data = Jsonstring });
 
             string result = JsonConvert.SerializeObject(model);
 
@@ -36,15 +40,19 @@ namespace KaffeBot.Services.TCP.Function.Command.Functions
         
         public static Task<string> SendToWeb(List<SocketMessage> messges)
         {
-            string Jsonstring = JsonConvert.SerializeObject(messges);
+            string jsonstring = JsonConvert.SerializeObject(messges);
 
             CommandModel model = new()
             {
                 Command = "ConsoleOutput",
-                CMDfor = []
+                CmDfor =
+                [
+                    new ServerObject()
+                    {
+                        Data = jsonstring
+                    }
+                ]
             };
-
-            model.CMDfor.Add(new ServerObject() { Data = Jsonstring });
 
             string result = JsonConvert.SerializeObject(model);
 

@@ -70,17 +70,17 @@ namespace KaffeBot.Services.TCP
                 await sslStream.WriteAsync(publicKey);
 
                 byte[] clientKeyLengthBytes = new byte[sizeof(int)];
-                await sslStream.ReadAsync(clientKeyLengthBytes.AsMemory(0, sizeof(int)));
+                int readAsync = await sslStream.ReadAsync(clientKeyLengthBytes.AsMemory(0, sizeof(int)));
                 int clientKeyLength = BitConverter.ToInt32(clientKeyLengthBytes, 0);
 
                 byte[] clientPublicKey = new byte[clientKeyLength];
-                await sslStream.ReadAsync(clientPublicKey.AsMemory(0, clientKeyLength));
+                int async = await sslStream.ReadAsync(clientPublicKey.AsMemory(0, clientKeyLength));
 
-                using var clientECDh = ECDiffieHellman.Create();
+                using ECDiffieHellman clientECDh = ECDiffieHellman.Create();
                 clientECDh.ImportSubjectPublicKeyInfo(clientPublicKey, out _);
                 sharedKey = ecdh.DeriveKeyMaterial(clientECDh.PublicKey);
 
-                if(client?.Client != null && client.Client.RemoteEndPoint is IPEndPoint remoteEndPoint)
+                if(client?.Client is { RemoteEndPoint: IPEndPoint remoteEndPoint })
                 {
                     await Console.Out.WriteLineAsync("(Client: " + remoteEndPoint.Address.ToString() + ") Gemeinsamer AES-Schlüssel erfolgreich abgeleitet.");
                 }

@@ -1,4 +1,6 @@
-﻿using Discord.WebSocket;
+﻿using System.Data;
+
+using Discord.WebSocket;
 
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
@@ -28,7 +30,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         public Task Execute(CancellationToken stoppingToken)
         {
             // Liste alle Server auf, auf denen sich der Bot befindet
-            foreach(var guild in _client.Guilds)
+            foreach(SocketGuild? guild in _client.Guilds)
             {
                 System.Console.WriteLine($"Der Bot ist auf dem Server: {guild.Name} ({guild.Id})");
 
@@ -42,9 +44,9 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         {
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", true)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", true)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -57,9 +59,9 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleName),
-                new("@IsActive", false)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleName),
+                new MySqlParameter("@IsActive", false)
             ];
 
             _ = _databaseService.ExecuteStoredProcedure("SetModuleStateByName", isActivePara);
@@ -71,17 +73,17 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
             MySqlParameter[] isActivePara =
             [
-                new("@IDChannel", channelId),
-                new("@NameModul", moduleNam)
+                new MySqlParameter("@IDChannel", channelId),
+                new MySqlParameter("@NameModul", moduleNam)
             ];
 
-            string getActive = "" +
-                "SELECT isActive " +
-                " FROM view_channel_module_status " +
-                " WHERE ChannelID = @IDChannel" +
-                " AND ModuleName = @NameModul;";
+            const string getActive = "" +
+                                     "SELECT isActive " +
+                                     " FROM view_channel_module_status " +
+                                     " WHERE ChannelID = @IDChannel" +
+                                     " AND ModuleName = @NameModul;";
 
-            var rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
+            DataTable rows = _databaseService.ExecuteSqlQuery(getActive, isActivePara);
 
             return (bool)rows.Rows[0]["isActive"];
         }
@@ -89,11 +91,11 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         private void LoadActiveServersFromDatabase()
         {
             MySqlParameter[] parameters = [];
-            var dataTable = _databaseService.ExecuteSqlQuery("SELECT ServerID, ServerName FROM discord_server", parameters);
+            DataTable dataTable = _databaseService.ExecuteSqlQuery("SELECT ServerID, ServerName FROM discord_server", parameters);
             foreach(System.Data.DataRow row in dataTable.Rows)
             {
                 // Stellen Sie sicher, dass der Wert positiv ist, bevor Sie ihn zu ulong konvertieren
-                var serverIdValue = row["ServerID"];
+                object serverIdValue = row["ServerID"];
                 if(serverIdValue != DBNull.Value && (long)serverIdValue >= 0)
                 {
                     _activeServers.Add((ulong)(long)serverIdValue);
@@ -108,11 +110,10 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         private void SyncWithDatabase(ulong serverId, string serverName)
         {
             // Implementiere die Logik, um den Server mit der Datenbank abzugleichen
-            var parameters = new MySqlParameter[]
-            {
-            new("@DiscordID", serverId),
-            new("@DiscordName", serverName)
-            };
+            MySqlParameter[] parameters = [
+            new MySqlParameter("@DiscordID", serverId),
+            new MySqlParameter("@DiscordName", serverName)
+            ];
 
             _databaseService.ExecuteStoredProcedure("SyncServerWithDatabase", parameters);
         }
@@ -132,14 +133,14 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         {
             MySqlParameter[] parameter =
             [
-                new("@NameModul", modulename),
-                new("@ServerModulIs", true),
-                new("@ChannelModulIs", false)
+                new MySqlParameter("@NameModul", modulename),
+                new MySqlParameter("@ServerModulIs", true),
+                new MySqlParameter("@ChannelModulIs", false)
             ];
 
-            string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
+            const string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
 
-            var Modules = _databaseService.ExecuteSqlQuery(query, parameter);
+            DataTable Modules = _databaseService.ExecuteSqlQuery(query, parameter);
 
             if(Modules.Rows.Count > 0)
             {
@@ -151,7 +152,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             }
             else
             {
-                string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
+                const string insert = "INSERT INTO discord_module (ModuleName , IsServerModul , IsChannelModul ) VALUES (@NameModul , @ServerModulIs , @ChannelModulIs )";
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }

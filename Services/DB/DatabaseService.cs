@@ -11,7 +11,7 @@ namespace KaffeBot.Services.DB
     /// <summary>
     /// Implementierung des Datenbankdiensts, um gespeicherte Prozeduren und SQL-Abfragen auszuführen.
     /// </summary>
-    public class DatabaseService : IDatabaseService
+    public sealed class DatabaseService : IDatabaseService
     {
         private readonly string _connectionString;
 
@@ -41,15 +41,15 @@ namespace KaffeBot.Services.DB
         /// <returns>Ein DataTable mit den Ergebnissen der Prozedur.</returns>
         public DataTable ExecuteStoredProcedure(string procedureName, MySqlParameter[] parameters)
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using MySqlConnection connection = new(_connectionString);
             connection.Open();
 
-            using var command = new MySqlCommand(procedureName, connection);
+            using MySqlCommand command = new(procedureName, connection);
             command.CommandType = CommandType.StoredProcedure;
             command.Parameters.AddRange(parameters);
 
-            using var adapter = new MySqlDataAdapter(command);
-            var result = new DataTable();
+            using MySqlDataAdapter adapter = new(command);
+            DataTable result = new();
             adapter.Fill(result);
 
             // Überprüfen und behandeln Sie DBNull-Werte in der Ergebnismenge
@@ -79,13 +79,13 @@ namespace KaffeBot.Services.DB
         /// <returns>Ein DataTable mit den Ergebnissen der Abfrage.</returns>
         public DataTable ExecuteSqlQuery(string query, MySqlParameter[] parameters)
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using MySqlConnection connection = new(_connectionString);
             connection.Open();
 
-            using var command = new MySqlCommand(query, connection);
+            using MySqlCommand command = new(query, connection);
             command.Parameters.AddRange(parameters);
 
-            using var adapter = new MySqlDataAdapter(command);
+            using MySqlDataAdapter adapter = new(command);
             DataTable result = new();
             adapter.Fill(result);
 
@@ -102,15 +102,15 @@ namespace KaffeBot.Services.DB
         /// <returns>Ein DataTable mit den Ergebnissen der Funktion.</returns>
         public DataTable ExecuteFunction(string functionName, MySqlParameter[] parameters)
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using MySqlConnection connection = new(_connectionString);
             connection.Open();
 
-            using var command = new MySqlCommand(functionName, connection);
+            using MySqlCommand command = new(functionName, connection);
             command.CommandType = CommandType.StoredProcedure;
             command.Parameters.AddRange(parameters);
 
-            using var adapter = new MySqlDataAdapter(command);
-            var result = new DataTable();
+            using MySqlDataAdapter adapter = new(command);
+            DataTable result = new();
             adapter.Fill(result);
 
             return result;
@@ -124,10 +124,10 @@ namespace KaffeBot.Services.DB
         /// <returns>Der zurückgegebene Skalarwert der Funktion.</returns>
         public object ExecuteScalarFunction(string functionName, MySqlParameter[] parameters)
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using MySqlConnection connection = new(_connectionString);
             connection.Open();
 
-            using var command = new MySqlCommand(functionName, connection);
+            using MySqlCommand command = new(functionName, connection);
             command.CommandType = CommandType.StoredProcedure;
             command.Parameters.AddRange(parameters);
 
@@ -136,13 +136,10 @@ namespace KaffeBot.Services.DB
             object result = command!.Parameters[parameters.Length - 1]!.Value!;
 
             // Überprüfen, ob das Ergebnis null ist, und in diesem Fall einen Standardwert zurückgeben
-            if(result == null || result == DBNull.Value)
-            {
-                // Hier können Sie einen Standardwert zurückgeben, z.B. 0 oder null, je nach Bedarf
-                return 0; // oder return null;
-            }
-
-            return result;
+            return result == DBNull.Value ?
+            // Hier können Sie einen Standardwert zurückgeben, z.B. 0 oder null, je nach Bedarf
+            0 : // oder return null;
+            result;
         }
     }
 }

@@ -2,41 +2,33 @@
 using System.Reflection;
 
 using Discord;
-using Discord.Commands;
 using Discord.WebSocket;
 
-using KaffeBot.Discord.BotOwner;
-using KaffeBot.Discord.grundfunktionen.auto_roll;
-using KaffeBot.Discord.grundfunktionen.Console;
-using KaffeBot.Discord.grundfunktionen.Server;
-using KaffeBot.Discord.grundfunktionen.User;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
 using KaffeBot.Services.Discord.Module;
-using KaffeBot.Services.TCP.Function.Command;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
 using MySqlConnector;
 
+using Timer = System.Timers.Timer;
+
 namespace KaffeBot.Services.Discord
 {
-    public class DiscordBotService : BackgroundService
+    internal sealed class DiscordBotService : BackgroundService
     {
         private readonly DiscordSocketClient _client;
         private readonly IConfiguration _configuration;
         private readonly IDatabaseService _databaseService;
         private readonly List<IBotModule> _modules = [];
-        private readonly SlashCommandHandler _commandHandler;
         private bool _isReady;
-        private System.Timers.Timer? _timer;
-
-        private  DiscordBotService DiscordBot { get; }
+        private Timer? _timer;
 
         public DiscordBotService(IConfiguration configuration, IDatabaseService databaseService)
         {
-            var clientConfig = new DiscordSocketConfig
+            DiscordSocketConfig clientConfig = new()
             {
                 GatewayIntents = GatewayIntents.All,
                 AlwaysDownloadUsers = true
@@ -47,31 +39,30 @@ namespace KaffeBot.Services.Discord
             _client.Log += LogAsync;
             _client.Ready += ClientReadyAsync; // Registriere den Event Handler vor dem Login
             _client.GuildAvailable += CheckServerChannel;
-            _client.JoinedGuild += OnGuildAvailableAsync;// Event-Handler für Server-Betreten
-            _commandHandler = new SlashCommandHandler(_client);
+            _client.JoinedGuild += OnGuildAvailableAsync; // Event-Handler für Server-Betreten
+            SlashCommandHandler commandHandler = new(_client);
 
             // Finden aller Typen, die IBotModule implementieren, und nicht abstrakt sind
-            var moduleTypes = Assembly.GetExecutingAssembly()
-                                      .GetTypes()
-                                      .Where(t => typeof(IBotModule).IsAssignableFrom(t) && !t.IsAbstract);
+            IEnumerable<Type> moduleTypes = Assembly.GetExecutingAssembly()
+                                                    .GetTypes()
+                                                    .Where(t => typeof(IBotModule).IsAssignableFrom(t) && !t.IsAbstract);
 
             // Instanziiere jedes gefundene Modul und füge es der _modules-Liste hinzu
-            foreach(var type in moduleTypes)
+            foreach(Type type in moduleTypes)
             {
-                var module = (IBotModule)Activator.CreateInstance(type, _client, _databaseService)!;
-                if(module != null)
-                {
-                    _modules.Add(module);
-                    module.RegisterCommandsAsync(_commandHandler).GetAwaiter().GetResult();
-                }
+                IBotModule module = (IBotModule)Activator.CreateInstance(type, _client, _databaseService)!;
+                _modules.Add(module);
+                module.RegisterCommandsAsync(commandHandler).GetAwaiter().GetResult();
             }
 
             DiscordBot = this;
         }
 
+        private DiscordBotService DiscordBot { get; }
+
         private Task CheckServerChannel(SocketGuild guild)
         {
-            var outParameter = new MySqlParameter
+            MySqlParameter outParameter = new()
             {
                 ParameterName = "@p_DbId",
                 MySqlDbType = MySqlDbType.Int32,
@@ -84,16 +75,16 @@ namespace KaffeBot.Services.Discord
                 outParameter
             ]);
 
-            int serverInternID = Convert.ToInt32(outParameter.Value);
+            int serverInternId = Convert.ToInt32(outParameter.Value);
 
-            foreach(var channel in guild.Channels)
+            foreach(SocketGuildChannel? channel in guild.Channels)
             {
                 // Überprüfen, ob der Kanal in der Datenbank vorhanden ist
                 MySqlParameter[] checkChannelParameters =
                 [
                     new MySqlParameter("@ChannelID", channel.Id)
                 ];
-                var channelResult = _databaseService.ExecuteSqlQuery("SELECT ID FROM discord_channel WHERE ChannelID = @ChannelID", checkChannelParameters);
+                DataTable channelResult = _databaseService.ExecuteSqlQuery("SELECT ID FROM discord_channel WHERE ChannelID = @ChannelID", checkChannelParameters);
 
                 int channelIdDb;
                 if(channelResult.Rows.Count == 0)
@@ -118,21 +109,23 @@ namespace KaffeBot.Services.Discord
                 // Überprüfen, ob der Eintrag in discord_server_channel bereits existiert
                 MySqlParameter[] checkServerChannelParameters =
                 [
-                    new MySqlParameter("@ServerID", serverInternID),
+                    new MySqlParameter("@ServerID", serverInternId),
                     new MySqlParameter("@ChannelID", channelIdDb)
                 ];
-                var serverChannelResult = _databaseService.ExecuteSqlQuery("SELECT ID FROM discord_server_channel WHERE ServerID = @ServerID AND ChannelID = @ChannelID", checkServerChannelParameters);
+                DataTable serverChannelResult =
+                _databaseService.ExecuteSqlQuery("SELECT ID FROM discord_server_channel WHERE ServerID = @ServerID AND ChannelID = @ChannelID", checkServerChannelParameters);
 
-                if(serverChannelResult.Rows.Count == 0)
+                if(serverChannelResult.Rows.Count != 0)
                 {
-                    // Füge den Server-Kanal-Eintrag in die Datenbank ein, wenn er nicht existiert
-                    MySqlParameter[] serverChannelParameters =
-                    [
-                        new MySqlParameter("@ServerID", serverInternID),
-                        new MySqlParameter("@ChannelID", channelIdDb)
-                    ];
-                    _databaseService.ExecuteSqlQuery("INSERT INTO discord_server_channel (ServerID, ChannelID) VALUES (@ServerID, @ChannelID)", serverChannelParameters);
+                    continue;
                 }
+                // Füge den Server-Kanal-Eintrag in die Datenbank ein, wenn er nicht existiert
+                MySqlParameter[] serverChannelParameters =
+                [
+                    new MySqlParameter("@ServerID", serverInternId),
+                    new MySqlParameter("@ChannelID", channelIdDb)
+                ];
+                _databaseService.ExecuteSqlQuery("INSERT INTO discord_server_channel (ServerID, ChannelID) VALUES (@ServerID, @ChannelID)", serverChannelParameters);
             }
             return Task.CompletedTask;
         }
@@ -145,9 +138,9 @@ namespace KaffeBot.Services.Discord
             {
                 // Logik für das Ausführen von Modulen beim Betreten eines Servers
 
-                foreach(var channel in guild.Channels)
+                foreach(SocketGuildChannel? channel in guild.Channels)
                 {
-                    await ActivateModuleAsync("ServerListModule", channel.Id); 
+                    await ActivateModuleAsync("ServerListModule", channel.Id);
                 }
                 await CheckServerChannel(guild);
             }
@@ -157,7 +150,7 @@ namespace KaffeBot.Services.Discord
         {
             _isReady = true;
             // Initialisiere alle Module, da der Bot jetzt verbunden ist.
-            foreach(var module in _modules)
+            foreach(IBotModule module in _modules)
             {
                 await module.InitializeAsync(_client, _configuration);
             }
@@ -165,28 +158,28 @@ namespace KaffeBot.Services.Discord
             InitializeTimer(); // Initialisiere den Timer für regelmäßige Ausführung
 
             // Hinzufügen der channels um bestimmte Module für einen channel zu deaktivieren.
-            foreach(var server in _client.Guilds)
+            foreach(SocketGuild? server in _client.Guilds)
             {
-                foreach(var kanal in server.TextChannels) // Annahme, dass Sie Textkanäle überprüfen wollen
+                foreach(SocketTextChannel? kanal in server.TextChannels) // Annahme, dass Sie Textkanäle überprüfen wollen
                 {
                     MySqlParameter[] parameters =
                     [
-                        new("@ChannelID", kanal.Id)
+                        new MySqlParameter("@ChannelID", kanal.Id)
                     ];
 
                     // Überprüfen, ob der Kanal bereits in der Datenbank ist
-                    var result = _databaseService.ExecuteSqlQuery("SELECT * FROM discord_channel WHERE ChannelID = @ChannelID", parameters);
+                    DataTable result = _databaseService.ExecuteSqlQuery("SELECT * FROM discord_channel WHERE ChannelID = @ChannelID", parameters);
 
                     if(result.Rows.Count == 0)
                     {
                         // Kanal ist nicht in der Datenbank, also fügen Sie ihn hinzu
                         MySqlParameter[] insertParameters =
                         [
-                            new("@ChannelID", kanal.Id),
-                            new("@ChannelName", kanal.Name)
+                            new MySqlParameter("@ChannelID", kanal.Id),
+                            new MySqlParameter("@ChannelName", kanal.Name)
                         ];
 
-                        string insertQuery = "INSERT INTO discord_channel (ChannelID, ChannelName) VALUES (@ChannelID, @ChannelName)";
+                        const string insertQuery = "INSERT INTO discord_channel (ChannelID, ChannelName) VALUES (@ChannelID, @ChannelName)";
                         _databaseService.ExecuteSqlQuery(insertQuery, insertParameters);
                         Console.WriteLine($"Kanal {kanal.Name} zur Datenbank hinzugefügt");
                     }
@@ -199,7 +192,7 @@ namespace KaffeBot.Services.Discord
 
             CheckModules checkModules = new(_databaseService);
 
-            foreach(var module in _modules)
+            foreach(IBotModule module in _modules)
             {
                 int? moduleId = checkModules.GetModuleIdByName(module.GetType().Name);
 
@@ -208,16 +201,16 @@ namespace KaffeBot.Services.Discord
                     continue; // Wenn das Modul nicht in der Datenbank registriert ist, überspringen
                 }
 
-                foreach(var server in _client.Guilds)
+                foreach(SocketGuild? server in _client.Guilds)
                 {
-                    foreach(var Kanal in server.TextChannels)
+                    foreach(SocketTextChannel? kanal in server.TextChannels)
                     {
-                        bool isActive = checkModules.IsModuleActiveForChannel(Kanal.Id, moduleId.Value);
+                        bool isActive = checkModules.IsModuleActiveForChannel(kanal.Id, moduleId.Value);
 
                         if(!isActive)
                         {
                             // Fügen Sie den Eintrag hinzu, wenn er nicht existiert
-                            isActive = checkModules.AddModuleEntryForChannel(Kanal.Id, moduleId.Value);
+                            isActive = checkModules.AddModuleEntryForChannel(kanal.Id, moduleId.Value);
                         }
 
                         if(isActive)
@@ -230,13 +223,13 @@ namespace KaffeBot.Services.Discord
             }
 
             // Führe alle Module aus
-            var moduleTasks = _modules.Select(module => module.Execute(CancellationToken.None)).ToList();
+            List<Task> moduleTasks = _modules.Select(module => module.Execute(CancellationToken.None)).ToList();
             await Task.WhenAll(moduleTasks);
         }
 
         private void InitializeTimer()
         {
-            _timer = new System.Timers.Timer(60000); // Setzt den Timer auf 60 Sekunden
+            _timer = new Timer(60000); // Setzt den Timer auf 60 Sekunden
             _timer.Elapsed += async (sender, e) => await OnTimerTickAsync();
             _timer.AutoReset = true;
             _timer.Enabled = true;
@@ -245,13 +238,9 @@ namespace KaffeBot.Services.Discord
         private async Task OnTimerTickAsync()
         {
             // Logik für das regelmäßige Ausführen von Modulen
-            foreach(var module in _modules)
+            foreach(IBotModule module in _modules.Where(module => module.ShouldExecuteRegularly))
             {
-                // Überprüfen Sie, ob das Modul regelmäßig ausgeführt werden soll
-                if(module.ShouldExecuteRegularly)
-                {
-                    await module.Execute(CancellationToken.None);
-                }
+                await module.Execute(CancellationToken.None);
             }
         }
 
@@ -274,7 +263,7 @@ namespace KaffeBot.Services.Discord
             // Blockiert diesen Task bis der Bot gestoppt wird
             await Task.Delay(Timeout.Infinite, stoppingToken);
         }
-        private Task LogAsync(LogMessage log)
+        private static Task LogAsync(LogMessage log)
         {
             Console.WriteLine(log.ToString());
             return Task.CompletedTask;
@@ -289,17 +278,17 @@ namespace KaffeBot.Services.Discord
             await base.StopAsync(stoppingToken);
         }
 
-        public async Task ActivateModuleAsync(string moduleName, ulong channelID)
+        private async Task ActivateModuleAsync(string moduleName, ulong channelId)
         {
             if(!_isReady)
             {
                 throw new InvalidOperationException("Die Module können nicht aktiviert werden, bevor der Bot bereit ist.");
             }
 
-            var module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
+            IBotModule? module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
             if(module != null)
             {
-                await module.ActivateAsync(channelID, moduleName);
+                await module.ActivateAsync(channelId, moduleName);
             }
         }
 
@@ -310,7 +299,7 @@ namespace KaffeBot.Services.Discord
                 throw new InvalidOperationException("Die Module können nicht deaktiviert werden, bevor der Bot bereit ist.");
             }
 
-            var module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
+            IBotModule? module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
             if(module != null)
             {
                 await module.DeactivateAsync(channelID, moduleName);
@@ -324,14 +313,11 @@ namespace KaffeBot.Services.Discord
                 throw new InvalidOperationException("Der Modulstatus kann nicht überprüft werden, bevor der Bot bereit ist.");
             }
 
-            var module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
-            
-            if(module == null)
-            {
-                return false; // Modul nicht gefunden
-            }
+            IBotModule? module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
 
-            return module.IsActive(channelId, moduleName);
+            return module != null &&
+                   // Modul nicht gefunden
+                   module.IsActive(channelId, moduleName);
         }
 
         // Diese Methode kann aufgerufen werden, um ein Modul zur Laufzeit hinzuzufügen.
@@ -353,7 +339,7 @@ namespace KaffeBot.Services.Discord
                 throw new InvalidOperationException("Die Module können nicht getriggert werden, bevor der Bot bereit ist.");
             }
 
-            var module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
+            IBotModule? module = _modules.FirstOrDefault(m => m.GetType().Name == moduleName);
             if(module != null)
             {
                 await module.Execute(CancellationToken.None);
