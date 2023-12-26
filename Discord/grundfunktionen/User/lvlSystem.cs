@@ -128,8 +128,15 @@ namespace KaffeBot.Discord.grundfunktionen.User
             
             if(cacheableUser.HasValue)
             {
-                long userId = (long)cacheableUser.Id;
+                IUser user = await cacheableUser.GetOrDownloadAsync();
 
+                if(user.IsBot)
+                {
+                    return;
+                }
+                
+                long userId = (long)cacheableUser.Id;
+                
                 IMessageChannel channel = await cacheableChannel.GetOrDownloadAsync();
                 long serverId = 0;
 
@@ -224,7 +231,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
         private Task StatGenerating(SocketMessage message)
         {
-            if(message.Author.IsBot && message.Channel is not SocketGuildChannel)
+            if(message.Author.IsBot)
             {
                 return Task.CompletedTask;
             }
@@ -244,27 +251,10 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             UserStatModel userStat = _userStat.FirstOrDefault(u => u.DiscordID == (long)discordId && u.DiscordServerID == discordServerId)!;
 
-            if(userStat != null)
-            {
-                // Benutzer gefunden, aktualisieren Sie seine Statistiken
-                userStat.UrlCount += linkCount;
-                userStat.ImageCount += imageCount;
-                userStat.WordCount += WordCount;
-            }
-            else
-            {
-                UserStatModel newUserStat = new()
-                {
-                    DiscordID = (long)discordId,
-                    DBUserID = 0, // Setzen Sie die DBUserID entsprechend
-                    ImageCount = imageCount,
-                    UrlCount = linkCount,
-                    WordCount = WordCount,
-                    Birthday = null
-                };
-
-                _userStat.Add(newUserStat);
-            }
+            // Benutzer gefunden, aktualisieren Sie seine Statistiken
+            userStat.UrlCount += linkCount;
+            userStat.ImageCount += imageCount;
+            userStat.WordCount += WordCount;
             return Task.CompletedTask;
         }
 
@@ -309,10 +299,10 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             // Identifizieren Sie die Discord-ID des Benutzers, der den Befehl ausgelöst hat
             ulong userId = command.User.Id;
-            ulong ServId = command.GuildId!.Value;
+            ulong servId = command.GuildId!.Value;
 
             // Suchen Sie die Statistiken des Benutzers
-            UserStatModel? userStats = _userStat.FirstOrDefault(u => u.DiscordID == (long)userId && u.DiscordServerID == (long)ServId);
+            UserStatModel? userStats = _userStat.FirstOrDefault(u => u.DiscordID == (long)userId && u.DiscordServerID == (long)servId);
 
 
             if(userStats != null)
@@ -380,12 +370,12 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             const string query = "SELECT * FROM discord_module WHERE ModuleName = @NameModul";
 
-            DataTable Modules = _databaseService.ExecuteSqlQuery(query, parameter);
+            DataTable modules = _databaseService.ExecuteSqlQuery(query, parameter);
 
-            if(Modules.Rows.Count > 0)
+            if(modules.Rows.Count > 0)
             {
-                string moduleNameInDB = Modules!.Rows[0]["ModuleName"]!.ToString()!;
-                if(moduleNameInDB!.Equals(modulename, StringComparison.OrdinalIgnoreCase))
+                string moduleNameInDb = modules!.Rows[0]["ModuleName"]!.ToString()!;
+                if(moduleNameInDb!.Equals(modulename, StringComparison.OrdinalIgnoreCase))
                 {
                     System.Console.WriteLine($"Modul ({modulename}) in DB");
                 }

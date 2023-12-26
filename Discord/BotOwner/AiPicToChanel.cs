@@ -71,7 +71,7 @@ namespace KaffeBot.Discord.BotOwner
 
         private async Task SendAiPicToChannel(SocketInteraction command)
         {
-            _ = command.DeferAsync(false);
+            _ = command.DeferAsync(true);
             SocketUser? user = command.User;
             ISocketMessageChannel? channel = command.Channel;
 
