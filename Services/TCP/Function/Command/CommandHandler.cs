@@ -1,7 +1,5 @@
-﻿using System;
-using System.Net.Security;
+﻿using System.Net.Security;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 
 using KaffeBot.Services.TCP.Function.Command.Functions;
 
@@ -21,6 +19,7 @@ namespace KaffeBot.Services.TCP.Function.Command
                     ConsoleMessageHandler consoleHandler = new(_stream, _sharedKey, _tcpClient);
                     _ = consoleHandler.SendConsole(cancellationToken);
                     break;
+
                 default:
                     break;
             }

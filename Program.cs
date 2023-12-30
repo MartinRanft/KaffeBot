@@ -5,7 +5,6 @@ using KaffeBot.Interfaces.DB;
 using KaffeBot.Services.DB;
 using KaffeBot.Services.Discord;
 using KaffeBot.Services.TCP;
-using KaffeBot.Services.WSS;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,7 +85,7 @@ namespace KaffeBot
                     Console.WriteLine($"Zertifikat geladen: {certificate.Subject}");
                     // Hier können Sie zusätzliche Aktionen mit dem geladenen Zertifikat durchführen
                 }
-                catch (Exception)
+                catch(Exception)
                 {
                     // ignored
                 }

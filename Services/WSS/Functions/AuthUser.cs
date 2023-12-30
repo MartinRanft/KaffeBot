@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BCrypt.Net;
+﻿using System.Data;
 
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Models.WSS;
@@ -42,7 +35,7 @@ namespace KaffeBot.Services.WSS.Functions
                .Cast<DataRow>()
                .FirstOrDefault();
 
-            if (string.IsNullOrEmpty(result![0].ToString()))
+            if(string.IsNullOrEmpty(result![0].ToString()))
             {
                 return null;
             }

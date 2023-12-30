@@ -56,7 +56,6 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
         public Task DeactivateAsync(ulong channelId, string moduleName)
         {
-
             MySqlParameter[] isActivePara =
             [
                 new MySqlParameter("@IDChannel", channelId),
@@ -70,7 +69,6 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
         public bool IsActive(ulong channelId, string moduleNam)
         {
-
             MySqlParameter[] isActivePara =
             [
                 new MySqlParameter("@IDChannel", channelId),
@@ -102,7 +100,6 @@ namespace KaffeBot.Discord.grundfunktionen.Server
                 }
                 else
                 {
-
                 }
             }
         }
@@ -112,7 +109,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             // Implementiere die Logik, um den Server mit der Datenbank abzugleichen
             MySqlParameter[] parameters = [
             new MySqlParameter("@DiscordID", serverId),
-            new MySqlParameter("@DiscordName", serverName)
+                new MySqlParameter("@DiscordName", serverName)
             ];
 
             _databaseService.ExecuteStoredProcedure("SyncServerWithDatabase", parameters);

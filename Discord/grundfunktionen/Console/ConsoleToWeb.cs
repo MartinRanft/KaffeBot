@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Data;
 
 using Discord.WebSocket;
 
-using KaffeBot.Discord.grundfunktionen.auto_roll;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
 using KaffeBot.Services.Discord.Module;
@@ -22,6 +16,7 @@ namespace KaffeBot.Discord.grundfunktionen.Console
     {
         private readonly IDatabaseService _databaseService = databaseService;
         private readonly DiscordSocketClient _client = client;
+
         public event Action<List<SocketMessage>>? OnNewMessages;
 
         private Timer? _messageCleanupTimer;

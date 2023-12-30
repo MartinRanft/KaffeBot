@@ -61,7 +61,7 @@ namespace KaffeBot.Services.DB
                     {
                         // Hier können Sie einen Standardwert setzen oder eine geeignete Aktion ausführen.
                         // Zum Beispiel, um einen leeren String zu verwenden:
-                        result.Rows[rowIndex][colIndex] = string.Empty;
+                        result.Rows[rowIndex][colIndex] = null;
                         // Oder um einen Standardwert für numerische Werte zu verwenden:
                         // result.Rows[rowIndex][colIndex] = 0;
                     }

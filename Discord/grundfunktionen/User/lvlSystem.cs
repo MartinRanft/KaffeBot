@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Net.Mail;
-using System.Text;
+﻿using System.Data;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 using Discord;
 using Discord.WebSocket;
@@ -27,6 +21,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
         private readonly IDatabaseService _databaseService = databaseService;
         private readonly List<UserStatModel> _userStat = [];
         private Timer? _syncTimer;
+        private Timer? _avatarTimer;
 
         public bool ShouldExecuteRegularly { get; set; } = false;
 
@@ -75,8 +70,46 @@ namespace KaffeBot.Discord.grundfunktionen.User
             client.UserIsTyping += AddUserToStat;
 
             await RegisterModul(nameof(LvlSystem));
-            
+
             _syncTimer = new Timer(SyncWithDatabase, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+            //_avatarTimer = new Timer(async _ => await GetDiscordAvaterAsync(), null, TimeSpan.Zero, TimeSpan.FromMinutes(5));
+        }
+
+        private async Task GetDiscordAvaterAsync()
+        {
+            List<DiscordUserAvatar> userAvatarless =
+            [
+                .. _databaseService.ExecuteStoredProcedure("GetUsersWithoutAvatar", [])
+                                                                             .AsEnumerable()
+                                                                             .Select(row => new DiscordUserAvatar
+                                                                             {
+                                                                                 ID = (int)row.Field<UInt32>("ID"),
+                                                                                 UserID = row.Field<long>("UserID"),
+                                                                                 DiscordName = row.Field<string>("DiscordName")!,
+                                                                                 DiscordAvatar = row.IsNull("DiscordAvatar") ? null : (byte[])row["DiscordAvatar"]
+                                                                             })
+,
+            ];
+
+            foreach(DiscordUserAvatar user in userAvatarless.Where(user => user.DiscordAvatar is null))
+            {
+                try
+                {
+                    SocketUser DiscordUser = _client.GetUser((ulong)user.UserID) as SocketUser;
+                    string? UserAvatarUrl = DiscordUser.GetAvatarUrl(size: 128);
+                    using HttpClient webCLient = new();
+                    Stream avatarStream = await webCLient.GetStreamAsync(UserAvatarUrl);
+
+                    using MemoryStream memoryStream = new();
+                    await avatarStream.CopyToAsync(memoryStream);
+
+                    user.DiscordAvatar = memoryStream.ToArray();
+                }
+                catch(Exception e)
+                {
+                    System.Console.WriteLine(user.DiscordName);
+                }
+            }
         }
 
         private Task LoadStatData()
@@ -89,7 +122,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
             {
                 return Task.CompletedTask;
             }
-            
+
             foreach(DataRow dataRow in data.Rows)
             {
                 UserStatModel model = new()
@@ -112,11 +145,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             foreach(MySqlParameter[] insertData in _userStat.Select(userStat => (MySqlParameter[])[
                         new MySqlParameter("@p_UserID", userStat.DBUserID),
-                        new MySqlParameter("p_DiscordServer", userStat.InternServerID),
-                        new MySqlParameter("p_WordCount", userStat.WordCount),
-                        new MySqlParameter("p_PicCount", userStat.ImageCount),
-                        new MySqlParameter("p_UrlCount", userStat.UrlCount),
-                        new MySqlParameter("p_Birthday", userStat.Birthday)
+                new MySqlParameter("p_DiscordServer", userStat.InternServerID),
+                new MySqlParameter("p_WordCount", userStat.WordCount),
+                new MySqlParameter("p_PicCount", userStat.ImageCount),
+                new MySqlParameter("p_UrlCount", userStat.UrlCount),
+                new MySqlParameter("p_Birthday", userStat.Birthday)
                     ]))
             {
                 _ = _databaseService.ExecuteStoredProcedure("UpdateOrInsertUserStat", insertData);
@@ -125,7 +158,6 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
         private async Task AddUserToStat(Cacheable<IUser, ulong> cacheableUser, Cacheable<IMessageChannel, ulong> cacheableChannel)
         {
-            
             if(cacheableUser.HasValue)
             {
                 IUser user = await cacheableUser.GetOrDownloadAsync();
@@ -134,9 +166,9 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 {
                     return;
                 }
-                
+
                 long userId = (long)cacheableUser.Id;
-                
+
                 IMessageChannel channel = await cacheableChannel.GetOrDownloadAsync();
                 long serverId = 0;
 
@@ -151,7 +183,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 }
 
                 UserStatModel? existingUserStat = _userStat.FirstOrDefault(u => u.DiscordID == userId);
-                if(existingUserStat != null &&  existingUserStat.DiscordServerID == serverId)
+                if(existingUserStat != null && existingUserStat.DiscordServerID == serverId)
                 {
                     return;
                 }
@@ -171,7 +203,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
                     _databaseService.ExecuteStoredProcedure("GetServerDbId",
                         [
                     new MySqlParameter("@p_ServerID", serverId),
-                    outParameter
+                            outParameter
                         ]);
 
                     if(outParameter.Value != DBNull.Value && int.TryParse(outParameter.Value!.ToString(), out int serverDataRow))
@@ -289,10 +321,10 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             // Überprüfen, ob der ausgeführte Befehl der ist, den dieses Modul behandelt
             await (command.Data.Name switch
-                {
-                    "stat" => SendUserStatsToDiscord(command),
-                    _ => Task.CompletedTask
-                }).ConfigureAwait(false);
+            {
+                "stat" => SendUserStatsToDiscord(command),
+                _ => Task.CompletedTask
+            }).ConfigureAwait(false);
         }
 
         private async Task SendUserStatsToDiscord(SocketInteraction command)
@@ -303,7 +335,6 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             // Suchen Sie die Statistiken des Benutzers
             UserStatModel? userStats = _userStat.FirstOrDefault(u => u.DiscordID == (long)userId && u.DiscordServerID == (long)servId);
-
 
             if(userStats != null)
             {
@@ -330,7 +361,6 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 await command.RespondAsync("Es wurden keine Statistiken für dich gefunden.", ephemeral: true);
             }
         }
-
 
         public bool IsActive(ulong channelId, string moduleName)
         {

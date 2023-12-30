@@ -1,17 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Data;
 
-using Discord;
 using Discord.WebSocket;
 
-using KaffeBot.Discord.BotOwner;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
-using KaffeBot.Services.DB;
 using KaffeBot.Services.Discord.Module;
 
 using Microsoft.Extensions.Configuration;
@@ -146,7 +138,6 @@ namespace KaffeBot.Discord.grundfunktionen.auto_roll
         {
             if(!IsActive(newRole.Guild.Id, "auto_roll"))
                 return Task.CompletedTask;
-
 
             _databaseService.ExecuteStoredProcedure("UpsertRole",
             [

@@ -55,7 +55,7 @@ namespace KaffeBot.Services.Discord.Module
             {
                 return false; // Kein neuer Eintrag erforderlich
             }
-            
+
             MySqlParameter[] insertParameters =
             [
                 new MySqlParameter("@ChannelID", channelId),
@@ -66,7 +66,6 @@ namespace KaffeBot.Services.Discord.Module
             const string insertQuery = "INSERT INTO discord_channel_module (ChannelID, ModulID, isActive) VALUES (@ChannelID, @ModulID, @IsActive)";
             _databaseService.ExecuteSqlQuery(insertQuery, insertParameters);
             return true; // Neuer Eintrag wurde hinzugefügt
-
         }
     }
 }

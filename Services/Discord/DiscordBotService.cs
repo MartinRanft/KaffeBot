@@ -130,8 +130,6 @@ namespace KaffeBot.Services.Discord
             return Task.CompletedTask;
         }
 
-
-
         private async Task OnGuildAvailableAsync(SocketGuild guild)
         {
             if(_isReady)
@@ -263,6 +261,7 @@ namespace KaffeBot.Services.Discord
             // Blockiert diesen Task bis der Bot gestoppt wird
             await Task.Delay(Timeout.Infinite, stoppingToken);
         }
+
         private static Task LogAsync(LogMessage log)
         {
             Console.WriteLine(log.ToString());

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Discord.WebSocket;
+﻿using Discord.WebSocket;
 
 using KaffeBot.Discord.grundfunktionen.Console;
 using KaffeBot.Models.TCP;
@@ -35,9 +30,8 @@ namespace KaffeBot.Services.TCP.Function.Command.Functions
             string result = JsonConvert.SerializeObject(model);
 
             return Task.FromResult(result);
-
         }
-        
+
         public static Task<string> SendToWeb(List<SocketMessage> messges)
         {
             string jsonstring = JsonConvert.SerializeObject(messges);

@@ -8,6 +8,7 @@ namespace KaffeBot.Services.TCP
     internal class TCPServerBase
     {
         internal static readonly Dictionary<IPAddress, (int Attempts, DateTime LastAttempt)> FailedAttempts = [];
+
         internal static readonly List<IPAddress> MainFrame =
             [
                 IPAddress.Parse("192.168.178.201"),
@@ -84,7 +85,6 @@ namespace KaffeBot.Services.TCP
                 {
                     await Console.Out.WriteLineAsync("(Client: " + remoteEndPoint.Address.ToString() + ") Gemeinsamer AES-Schlüssel erfolgreich abgeleitet.");
                 }
-
             }
             catch(Exception)
             {

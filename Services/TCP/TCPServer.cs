@@ -1,15 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
+﻿using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
 
-using KaffeBot.Discord.grundfunktionen.Console;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Models.TCP.User;
 using KaffeBot.Services.TCP.Function.Auth;
@@ -38,20 +31,21 @@ namespace KaffeBot.Services.TCP
 
                     _ = Task.Run(() => HandleClient(client, _stoppingToken), cancellationToken);
                 }
-            }catch(Exception e)
+            }
+            catch(Exception e)
             {
                 await Console.Out.WriteLineAsync(e.Message);
             }
-            finally 
-            { 
-                _listener.Stop(); 
+            finally
+            {
+                _listener.Stop();
             }
         }
 
         private async Task HandleClient(TcpClient client, CancellationToken stoppingToken)
         {
             int messageCount = 0;
-            AuthUser authUser = new(databaseService) ;
+            AuthUser authUser = new(databaseService);
 
             // Erhalten der Client-IP-Adresse
             IPEndPoint? clientEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
@@ -77,7 +71,6 @@ namespace KaffeBot.Services.TCP
 
                 while(client.Connected && !stoppingToken.IsCancellationRequested)
                 {
-
                     if(messageCount == 0)
                     {
                         await SendMessage(sslStream, sharedKey, "Send AUTH NOW");
@@ -120,9 +113,9 @@ namespace KaffeBot.Services.TCP
             {
                 await Console.Out.WriteLineAsync($"Fehler bei der Verarbeitung des Clients: {e.Message}");
             }
-            finally 
-            { 
-                client.Close(); 
+            finally
+            {
+                client.Close();
             }
         }
 

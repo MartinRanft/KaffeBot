@@ -1,7 +1,6 @@
 ﻿using System.Data;
 
 using Discord;
-using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
 
@@ -75,7 +74,6 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
         public bool IsActive(ulong channelId, string moduleNam)
         {
-
             MySqlParameter[] isActivePara =
             [
                 new MySqlParameter("@IDChannel", channelId),

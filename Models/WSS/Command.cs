@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace KaffeBot.Models.WSS
+﻿namespace KaffeBot.Models.WSS
 {
     internal abstract class CommandModel
     {
@@ -14,9 +8,9 @@ namespace KaffeBot.Models.WSS
 
     internal abstract class ServerObject
     {
-        public string? User {  get; set; }
+        public string? User { get; set; }
         public string? Password { get; set; }
-        public string? ServerID { get; set;}
-        public string? ChannelID { get; set;}
+        public string? ServerID { get; set; }
+        public string? ChannelID { get; set; }
     }
 }

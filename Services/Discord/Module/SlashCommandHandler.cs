@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Discord.WebSocket;
 
-using Discord.WebSocket;
 using KaffeBot.Interfaces.Discord;
 
 namespace KaffeBot.Services.Discord.Module
@@ -24,7 +19,7 @@ namespace KaffeBot.Services.Discord.Module
         {
             if(!string.IsNullOrEmpty(command))
             {
-                _commandModules[command] = module; 
+                _commandModules[command] = module;
             }
         }
 
@@ -36,5 +31,4 @@ namespace KaffeBot.Services.Discord.Module
             }
         }
     }
-
 }

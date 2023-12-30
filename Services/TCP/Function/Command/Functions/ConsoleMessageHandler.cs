@@ -50,6 +50,5 @@ namespace KaffeBot.Services.TCP.Function.Command.Functions
                 Console.WriteLine($"Fehler im EventConsoleToWeb: {ex.Message}");
             }
         }
-
     }
 }

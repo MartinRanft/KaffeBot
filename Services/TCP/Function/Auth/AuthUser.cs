@@ -1,17 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
+﻿using System.Data;
 using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 
-using BCrypt.Net;
-
-using Discord;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Models.TCP;
 using KaffeBot.Models.TCP.User;
+
 using MySqlConnector;
 
 using Newtonsoft.Json;
@@ -41,7 +34,7 @@ namespace KaffeBot.Services.TCP.Function.Auth
             {
                 return Task.FromResult(User);
             }
-            
+
             ServerObject firstCmd = model.CmDfor.First();
             Username = firstCmd.User!;
             IV = Convert.FromBase64String(firstCmd.IV!);
@@ -60,7 +53,7 @@ namespace KaffeBot.Services.TCP.Function.Auth
                                               .Cast<DataRow>()
                                               .FirstOrDefault();
 
-            if (string.IsNullOrEmpty(result![0].ToString()))
+            if(string.IsNullOrEmpty(result![0].ToString()))
             {
                 return null;
             }
@@ -101,6 +94,5 @@ namespace KaffeBot.Services.TCP.Function.Auth
             string? plaintext = srDecrypt.ReadToEnd();
             return plaintext;
         }
-
     }
 }

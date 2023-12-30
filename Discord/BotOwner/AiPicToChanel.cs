@@ -1,9 +1,7 @@
 ﻿using System.Data;
 using System.Net.Http.Json;
-using System.Threading.Channels;
 
 using Discord;
-using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
 
@@ -68,14 +66,13 @@ namespace KaffeBot.Discord.BotOwner
             await RegisterModul(nameof(AiPicToChanel).ToString());
         }
 
-
         private async Task SendAiPicToChannel(SocketInteraction command)
         {
             _ = command.DeferAsync(true);
             SocketUser? user = command.User;
             ISocketMessageChannel? channel = command.Channel;
 
-            if(IsActive(channel.Id,GetType().Name))
+            if(IsActive(channel.Id, GetType().Name))
             {
                 HttpClient client = new();
                 const string apiBase = "https://api.bytewizards.de/";
@@ -150,7 +147,6 @@ namespace KaffeBot.Discord.BotOwner
 
         public bool IsActive(ulong channelId, string moduleName)
         {
-
             MySqlParameter[] isActivePara =
             [
                 new MySqlParameter("@IDChannel", channelId),

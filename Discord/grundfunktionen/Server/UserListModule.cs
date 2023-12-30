@@ -91,7 +91,6 @@ namespace KaffeBot.Discord.grundfunktionen.Server
 
         public bool IsActive(ulong channelId, string moduleNam)
         {
-
             MySqlParameter[] isActivePara =
             [
                 new MySqlParameter("@IDChannel", channelId),
