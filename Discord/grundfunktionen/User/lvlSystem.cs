@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 using Discord;
@@ -66,13 +67,18 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 .WithDescription("Zeigt dir deine Statistik und lvl an.")
                 .Build());
 
+            await client.CreateGlobalApplicationCommandAsync(new SlashCommandBuilder()
+                                                             .WithName("profile_avatar_update")
+                                                             .WithDescription("Update dein Profile Avatar in der HS")
+                                                             .Build());
+
             client.MessageReceived += StatGenerating;
             client.UserIsTyping += AddUserToStat;
 
             await RegisterModul(nameof(LvlSystem));
 
             _syncTimer = new Timer(SyncWithDatabase, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
-            //_avatarTimer = new Timer(async _ => await GetDiscordAvaterAsync(), null, TimeSpan.Zero, TimeSpan.FromMinutes(5));
+            _avatarTimer = new Timer(async _ => await GetDiscordAvaterAsync(), null, TimeSpan.Zero, TimeSpan.FromMinutes(5));
         }
 
         private async Task GetDiscordAvaterAsync()
@@ -93,22 +99,18 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             foreach(DiscordUserAvatar user in userAvatarless.Where(user => user.DiscordAvatar is null))
             {
-                try
-                {
-                    SocketUser DiscordUser = _client.GetUser((ulong)user.UserID) as SocketUser;
-                    string? UserAvatarUrl = DiscordUser.GetAvatarUrl(size: 128);
-                    using HttpClient webCLient = new();
-                    Stream avatarStream = await webCLient.GetStreamAsync(UserAvatarUrl);
+                SocketUser DiscordUser = _client.GetUser((ulong)user.UserID) as SocketUser;
+                user.DiscordAvatar = await GetProfilePicAsync(DiscordUser);
+            }
 
-                    using MemoryStream memoryStream = new();
-                    await avatarStream.CopyToAsync(memoryStream);
+            foreach(DiscordUserAvatar user in userAvatarless.Where(user => user.DiscordAvatar is not null))
+            {
+                MySqlParameter[] param = [
+                    new MySqlParameter("InternID", user.ID),
+                    new MySqlParameter("avatarData", user.DiscordAvatar)
+                ];
 
-                    user.DiscordAvatar = memoryStream.ToArray();
-                }
-                catch(Exception e)
-                {
-                    System.Console.WriteLine(user.DiscordName);
-                }
+                _ = _databaseService.ExecuteStoredProcedure("UpdateUserAvatar", param);
             }
         }
 
@@ -323,6 +325,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
             await (command.Data.Name switch
             {
                 "stat" => SendUserStatsToDiscord(command),
+                "profile_avatar_update" => UpdateProfilePic(command),
                 _ => Task.CompletedTask
             }).ConfigureAwait(false);
         }
@@ -360,6 +363,29 @@ namespace KaffeBot.Discord.grundfunktionen.User
                 // Falls keine Statistiken gefunden wurden
                 await command.RespondAsync("Es wurden keine Statistiken für dich gefunden.", ephemeral: true);
             }
+        }
+
+        private async Task UpdateProfilePic(SocketInteraction command)
+        {
+            _ = command.DeferAsync(true);
+            await command.FollowupAsync("Dein Avatar wird Aktualisiert");
+            ulong UserDiscordID = command.User.Id;
+            
+            DataTable UserData = _databaseService.ExecuteStoredProcedure("GetDiscordUserDetails", [new MySqlParameter("user_id", UserDiscordID)]);
+
+            DiscordUserAvatar newAvatar = new()
+            {
+                ID = (int)UserData.Rows[0]["ID"],
+                DiscordAvatar = await GetProfilePicAsync(command.User)
+            };
+            
+            MySqlParameter[] param = [
+                new MySqlParameter("InternID", newAvatar.ID),
+                new MySqlParameter("avatarData", newAvatar.DiscordAvatar)
+            ];
+
+            _ = _databaseService.ExecuteStoredProcedure("UpdateUserAvatar", param);
+
         }
 
         public bool IsActive(ulong channelId, string moduleName)
@@ -426,6 +452,32 @@ namespace KaffeBot.Discord.grundfunktionen.User
         {
             commandHandler.RegisterModule("stat", this);
             return Task.CompletedTask;
+        }
+        
+        private async Task<byte[]?> GetProfilePicAsync(SocketUser discordUser)
+        {
+            try
+            {
+                if(discordUser is null)
+                {
+                    return null;
+                }
+                    
+                string? UserAvatarUrl = discordUser.GetAvatarUrl(size: 128) ?? discordUser.GetDefaultAvatarUrl();
+
+                using HttpClient webCLient = new();
+                Stream avatarStream = await webCLient.GetStreamAsync(UserAvatarUrl);
+
+                using MemoryStream memoryStream = new();
+                await avatarStream.CopyToAsync(memoryStream);
+
+                return memoryStream.ToArray();
+            }
+            catch(Exception)
+            {
+                System.Console.WriteLine("Avatar not found");
+                return null;
+            }
         }
     }
 }
