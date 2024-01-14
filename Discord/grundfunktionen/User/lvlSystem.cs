@@ -145,7 +145,14 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
         private void SyncWithDatabase(object? state)
         {
-            foreach(MySqlParameter[] insertData in _userStat.Select(userStat => (MySqlParameter[])[
+            List<UserStatModel> sendData = [];
+            
+            lock (_userStat)
+            {
+                sendData = _userStat;
+            }
+
+            foreach(MySqlParameter[] insertData in sendData.Select(userStat => (MySqlParameter[])[
                         new MySqlParameter("@p_UserID", userStat.DBUserID),
                 new MySqlParameter("p_DiscordServer", userStat.InternServerID),
                 new MySqlParameter("p_WordCount", userStat.WordCount),
