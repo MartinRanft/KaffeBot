@@ -138,7 +138,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
                     UrlCount = (int)dataRow["UrlCount"],
                     WordCount = (int)dataRow["WordCount"]
                 };
-                _userStat.Add(model);
+
+                lock(_userStat)
+                {
+                    _userStat.Add(model); 
+                }
             }
             return Task.CompletedTask;
         }
@@ -255,8 +259,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
                                 Birthday = null
                             };
                         }
-
-                        _userStat.Add(addUser);
+                        
+                        lock (_userStat)
+                        {
+                            _userStat.Add(addUser);
+                        }
                     }
                     else
                     {
@@ -289,9 +296,19 @@ namespace KaffeBot.Discord.grundfunktionen.User
             int WordCount = CountWords(message.Content);
 
             ulong discordId = message.Author.Id;
+            UserStatModel userStat;
 
-            UserStatModel userStat = _userStat.FirstOrDefault(u => u.DiscordID == (long)discordId && u.DiscordServerID == discordServerId)!;
+            lock(_userStat)
+            {
+                userStat = _userStat.FirstOrDefault(u => u.DiscordID == (long)discordId && u.DiscordServerID == discordServerId)!; 
+            }
 
+            if(userStat is null)
+            {
+                System.Console.WriteLine("user not found");
+                return Task.CompletedTask;
+            }
+            
             // Benutzer gefunden, aktualisieren Sie seine Statistiken
             userStat.UrlCount += linkCount;
             userStat.ImageCount += imageCount;

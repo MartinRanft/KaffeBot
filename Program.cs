@@ -56,7 +56,7 @@ namespace KaffeBot
                     services.AddHostedService<TcpServer>(provider =>
                         new TcpServer(8080, certificate, provider.GetRequiredService<IDatabaseService>()));
                 });
-
+        
         private static X509Certificate2 GenerateSelfSignedCertificate()
         {
             using RSA rsa = RSA.Create(2048);
