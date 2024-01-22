@@ -42,34 +42,26 @@ namespace KaffeBot.Services.DB
         public DataTable ExecuteStoredProcedure(string procedureName, MySqlParameter[] parameters)
         {
             using MySqlConnection connection = new(_connectionString);
-            connection.Open();
-
             using MySqlCommand command = new(procedureName, connection);
             command.CommandType = CommandType.StoredProcedure;
             command.Parameters.AddRange(parameters);
 
-            using MySqlDataAdapter adapter = new(command);
             DataTable result = new();
-            adapter.Fill(result);
-
-            // Überprüfen und behandeln Sie DBNull-Werte in der Ergebnismenge
-            for(int rowIndex = 0; rowIndex < result.Rows.Count; rowIndex++)
+            try
             {
-                for(int colIndex = 0; colIndex < result.Columns.Count; colIndex++)
-                {
-                    if(result.Rows[rowIndex][colIndex] == DBNull.Value)
-                    {
-                        // Hier können Sie einen Standardwert setzen oder eine geeignete Aktion ausführen.
-                        // Zum Beispiel, um einen leeren String zu verwenden:
-                        result.Rows[rowIndex][colIndex] = null;
-                        // Oder um einen Standardwert für numerische Werte zu verwenden:
-                        // result.Rows[rowIndex][colIndex] = 0;
-                    }
-                }
+                connection.Open();
+                using MySqlDataAdapter adapter = new(command);
+                adapter.Fill(result);
+            }
+            catch (Exception ex)
+            {
+                // Loggen Sie den Fehler, oder werfen Sie ihn erneut, je nach Anwendungslogik
+                Console.WriteLine($"Fehler bei der Ausführung der gespeicherten Prozedur '{procedureName}': {ex.Message}");
             }
 
             return result;
         }
+
 
         /// <summary>
         /// Führt eine SQL-Abfrage in der Datenbank aus und gibt die Ergebnisse in Form eines DataTable zurück.
