@@ -77,7 +77,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
             await RegisterModul(nameof(LvlSystem));
 
-            _syncTimer = new Timer(SyncWithDatabase, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+            _syncTimer = new Timer(SyncWithDatabase, null, TimeSpan.Zero, TimeSpan.FromHours(1));
             _avatarTimer = new Timer(async _ => await GetDiscordAvaterAsync(), null, TimeSpan.Zero, TimeSpan.FromMinutes(5));
         }
 
