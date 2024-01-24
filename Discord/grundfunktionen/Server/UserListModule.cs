@@ -11,6 +11,8 @@ using Microsoft.Extensions.Configuration;
 
 using MySqlConnector;
 
+using Newtonsoft.Json;
+
 namespace KaffeBot.Discord.grundfunktionen.Server
 {
     public class UserListModule(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
@@ -18,6 +20,7 @@ namespace KaffeBot.Discord.grundfunktionen.Server
         private readonly DiscordSocketClient _client = client;
         private readonly IDatabaseService _databaseService = databaseService;
         private readonly Dictionary<ulong, bool> _activeServers = [];
+        private Timer? linkUserTimer;
 
         public bool ShouldExecuteRegularly { get; set; } = false;
 
@@ -26,7 +29,26 @@ namespace KaffeBot.Discord.grundfunktionen.Server
             _client.UserJoined += OnUserJoinedAsync;
             _client.JoinedGuild += OnJoinedGuildAsync;
             SyncUsersWithDatabase();
+            linkUserTimer = new Timer(async _ => await LinkUserToServer(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
             await RegisterModul(nameof(UserListModule));
+        }
+
+        private async Task LinkUserToServer()
+        {
+            var userServerPairs = _client.Guilds.SelectMany(guild => guild.Users.Select(user => new 
+            {
+                UserId = user.Id,
+                ServerId = guild.Id
+            })).ToList();
+
+            string jsonPayload = JsonConvert.SerializeObject(userServerPairs);
+
+            MySqlParameter[] parameters =
+            [
+                new MySqlParameter("json_data", jsonPayload)
+            ];
+
+            await Task.Run(() => _databaseService.ExecuteStoredProcedure("BulkLinkUserToServer", parameters));
         }
 
         private void SyncUsersWithDatabase()
