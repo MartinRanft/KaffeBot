@@ -16,6 +16,8 @@ RUN dotnet publish "KaffeBot.csproj" -c Release -o /app/publish /p:UseAppHost=fa
 
 FROM base AS final
 WORKDIR /app
+RUN apt-get update
+RUN apt-get install htop -y
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "KaffeBot.dll"]
 EXPOSE 8080

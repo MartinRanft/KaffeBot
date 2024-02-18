@@ -12,15 +12,15 @@ namespace KaffeBot.Services.WSS.Functions
     {
         public static UserModel? Authenticate(CommandModel Usercmd, IDatabaseService database)
         {
-            string Username = string.Empty;
-            string Password = string.Empty;
+            string username;
+            string password;
             UserModel? User = null;
 
             if(Usercmd.CMDfor is not null && Usercmd.CMDfor.Count != 0)
             {
                 ServerObject firstCmd = Usercmd!.CMDfor!.FirstOrDefault()!;
-                Username = firstCmd.User!;
-                Password = firstCmd.Password!;
+                username = firstCmd.User!;
+                password = firstCmd.Password!;
             }
             else
             {
@@ -28,7 +28,7 @@ namespace KaffeBot.Services.WSS.Functions
             }
 
             MySqlParameter[] param = [
-                new("@user_name", Username)
+                new("@user_name", username)
                 ];
 
             DataRow? result = database.ExecuteStoredProcedure("GetUserPasswordByUsername", param).Rows
@@ -40,25 +40,24 @@ namespace KaffeBot.Services.WSS.Functions
                 return null;
             }
 
-            if(result![0].ToString() != Password)
+            if(result![0].ToString() != password)
             {
                 return User;
             }
-            param = [];
 
             param = [
                 new MySqlParameter("@user_id", result["UserID"])
             ];
 
-            DataTable? UserData = database.ExecuteStoredProcedure("GetDiscordUserDetails", param);
+            DataTable? userData = database.ExecuteStoredProcedure("GetDiscordUserDetails", param);
 
-            User!.DiscordID = (ulong)UserData!.Rows[0]["UserID"];
-            User!.DiscordName = (string)UserData!.Rows[0]["DiscordName"];
-            User!.IsAdmin = (bool)UserData!.Rows[0]["isAdmin"];
-            User!.IsActive = (bool)UserData!.Rows[0]["isActive"];
-            User!.IsServerMod = (bool)UserData!.Rows[0]["IsServerMod"];
-            User!.ApiUser = (int)UserData!.Rows[0]["apiUser"];
-            User!.ApiKey = (string)UserData!.Rows[0]["ApiKey"];
+            User!.DiscordID = (ulong)userData!.Rows[0]["UserID"];
+            User!.DiscordName = (string)userData!.Rows[0]["DiscordName"];
+            User!.IsAdmin = (bool)userData!.Rows[0]["isAdmin"];
+            User!.IsActive = (bool)userData!.Rows[0]["isActive"];
+            User!.IsServerMod = (bool)userData!.Rows[0]["IsServerMod"];
+            User!.ApiUser = (int)userData!.Rows[0]["apiUser"];
+            User!.ApiKey = (string)userData!.Rows[0]["ApiKey"];
 
             return User;
         }

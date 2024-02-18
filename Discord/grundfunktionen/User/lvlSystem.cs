@@ -478,7 +478,7 @@ namespace KaffeBot.Discord.grundfunktionen.User
             return Task.CompletedTask;
         }
         
-        private async Task<byte[]?> GetProfilePicAsync(SocketUser discordUser)
+        private static async Task<byte[]?> GetProfilePicAsync(SocketUser discordUser)
         {
             try
             {

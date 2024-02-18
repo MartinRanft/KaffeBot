@@ -22,11 +22,8 @@ namespace KaffeBot.Services.TCP.Function.Auth
 
         public Task<UserModel?>? Authenticate(string message, string sharedKeyBase64)
         {
-            string Username = string.Empty;
-            string Password = string.Empty;
-            byte[]? IV = null;
-            byte[]? sharedKey = null;
-            UserModel? User = null;
+            UserModel? User;
+            User = null;
 
             CommandModel model = JsonConvert.DeserializeObject<CommandModel>(message)!;
 
@@ -36,13 +33,13 @@ namespace KaffeBot.Services.TCP.Function.Auth
             }
 
             ServerObject firstCmd = model.CmDfor.First();
-            Username = firstCmd.User!;
-            IV = Convert.FromBase64String(firstCmd.IV!);
-            sharedKey = Convert.FromBase64String(sharedKeyBase64);
+            string Username = firstCmd.User!;
+            byte[]? iv = Convert.FromBase64String(firstCmd.IV!);
+            byte[]? sharedKey = Convert.FromBase64String(sharedKeyBase64);
 
             byte[] encryptedPassword = Convert.FromBase64String(firstCmd.Password!);
 
-            Password = Decrypt(encryptedPassword, sharedKey, IV);
+            string Password = Decrypt(encryptedPassword, sharedKey, iv);
 
             MySqlParameter[] parameters =
             [
@@ -62,7 +59,6 @@ namespace KaffeBot.Services.TCP.Function.Auth
             {
                 return Task.FromResult(User);
             }
-            parameters = [];
 
             parameters = [
                 new MySqlParameter("@user_id", result["UserID"])

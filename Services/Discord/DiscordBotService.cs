@@ -55,10 +55,10 @@ namespace KaffeBot.Services.Discord
                 module.RegisterCommandsAsync(commandHandler).GetAwaiter().GetResult();
             }
 
-            DiscordBot = this;
+            //DiscordBot = this;
         }
 
-        private DiscordBotService DiscordBot { get; }
+        //private DiscordBotService DiscordBot { get; }
 
         private Task CheckServerChannel(SocketGuild guild)
         {
