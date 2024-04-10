@@ -1,4 +1,6 @@
-﻿using System.Data;
+﻿using System.Collections.Concurrent;
+using System.Data;
+using System.Threading.Channels;
 
 using Discord;
 using Discord.WebSocket;
@@ -20,11 +22,14 @@ using static KaffeBot.Models.KI.Enums.BildConfigEnums;
 
 namespace KaffeBot.Discord.grundfunktionen.KI
 {
-    public class ComfyUiGenerating(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
+    public class ComfyUiGenerating(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule, IButtonModule, ICompounModule
     {
         private readonly IDatabaseService _databaseService = databaseService;
         private readonly DiscordSocketClient _client = client;
-        public bool ShouldExecuteRegularly { get; set; } = false;
+
+        private static ConcurrentDictionary<ulong, UserAiSettings> UserSettings { get; set; } = [];
+
+        public bool ShouldExecuteRegularly { get; set; } = true;
 
         public Task ActivateAsync(ulong channelId, string moduleName)
         {
@@ -55,6 +60,17 @@ namespace KaffeBot.Discord.grundfunktionen.KI
 
         public Task Execute(CancellationToken stoppingToken)
         {
+            List<ulong> keysToRemove = UserSettings
+                                       .Where(kv => (DateTime.Now - kv.Value.LoadedDateTime)?.TotalHours > 2)
+                                       .Select(kv => kv.Key)
+                                       .ToList();
+
+            foreach (ulong userId in keysToRemove)
+            {
+                // Diese Variable wird nicht verwendet, aber TryRemove erfordert sie.
+                _ = UserSettings.TryRemove(userId, out UserAiSettings removedValue);
+            }
+
             return Task.CompletedTask;
         }
 
@@ -62,7 +78,7 @@ namespace KaffeBot.Discord.grundfunktionen.KI
         {
             await (command.Data.Name switch
             {
-                "generate_picture" => GenerateAIPicture(command),
+                "generate_picture" => GenerateAiPicture(command),
                 "setting_aigenrating" => SettingAi(command),
                 _ => Task.CompletedTask
             }).ConfigureAwait(false);
@@ -72,64 +88,79 @@ namespace KaffeBot.Discord.grundfunktionen.KI
         {
             ulong userId = command.User.Id;
 
-            Dictionary<string, List<string>> lorDictionary = [];
-
-            foreach (LoraStack lora in Enum.GetValues(typeof(LoraStack)))
-            {
-                string? description = lora.GetDescription(); // Nutze die Erweiterungsmethode, um die Description zu bekommen
-                
-                if(description == null)
-                {
-                    continue;
-                }
-                
-                // Extrahiere den Ordner aus der Beschreibung
-                int lastBackslashIndex = description.LastIndexOf('\\');
-                if(lastBackslashIndex <= -1)
-                {
-                    continue;
-                }
-                    
-                string folder = description[..lastBackslashIndex];
-                string enumName = lora.ToString();
-
-                // Überprüfe, ob der Ordner bereits im Dictionary existiert
-                if (!lorDictionary.TryGetValue(folder, out List<string>? value))
-                {
-                    value = ([]);
-                    lorDictionary[folder] = value; // Füge einen neuen Eintrag hinzu, falls nicht vorhanden
-                }
-
-                value.Add(enumName); // Füge den Enum-Namen zur Liste hinzu
-            }
-
-            UserAiSettings? userSetting = LoadSettings(userId);
+            UserAiSettings? userSetting = await LoadSettings(userId);
 
             EmbedBuilder embed = new();
             ComponentBuilder component = new();
-            
+
             embed.WithTitle("Deine aktuellen AI Einstellungen")
                  .WithColor(Color.DarkBlue);
 
             if(userSetting is not null)
             {
-                AiButtonGen.AddSettingFieldAndButton(embed, component, "Lora 1", userSetting.Lora1, 1);
-                AiButtonGen.AddSettingFieldAndButton(embed, component, "Lora 2", userSetting.Lora2, 2);
-                AiButtonGen.AddSettingFieldAndButton(embed, component, "Lora 3", userSetting.Lora3, 3);
-                AiButtonGen.AddSettingFieldAndButton(embed, component, "Lora 4", userSetting.Lora4, 4);
-                AiButtonGen.AddSettingFieldAndButton(embed, component, "Lora 5", userSetting.Lora5, 5);
-                AiButtonGen.AddSettingFieldAndButton(embed, component, "Model", userSetting.Model, 5);
+                List<LoraStack?> loras = new() { userSetting.Lora1, userSetting.Lora2, userSetting.Lora3, userSetting.Lora4, userSetting.Lora5 };
+
+                for (int i = 0; i < loras.Count; i++)
+                {
+                    AiButtonGen.AddSettingFieldAndButton(embed, component, $"Lora {i + 1}", loras[i], i + 1);
+                }
+
+
+                AiButtonGen.AddSettingFieldAndButton(embed, component, "Model", userSetting.Model, 1);
             }
             else
             {
                 embed.WithDescription("Keine Einstellungen gesetzt.");
             }
 
-            await command.RespondAsync(embed: embed.Build(), components: component.Build(),ephemeral: true);
+            await command.RespondAsync(embed: embed.Build(), components: component.Build(), ephemeral: true);
         }
 
-        private UserAiSettings? LoadSettings(ulong userId)
+        private async Task SettingAi(SocketMessageComponent command)
         {
+            ulong userId = command.User.Id;
+
+            UserAiSettings? userSetting = await LoadSettings(userId);
+
+            EmbedBuilder embed = new();
+            ComponentBuilder component = new();
+
+            embed.WithTitle("Deine aktuellen AI Einstellungen")
+                 .WithColor(Color.DarkBlue);
+
+            if(userSetting is not null)
+            {
+                List<LoraStack?> loras = new() { userSetting.Lora1, userSetting.Lora2, userSetting.Lora3, userSetting.Lora4, userSetting.Lora5 };
+
+                for (int i = 0; i < loras.Count; i++)
+                {
+                    AiButtonGen.AddSettingFieldAndButton(embed, component, $"Lora {i + 1}", loras[i], i + 1);
+                }
+
+                AiButtonGen.AddSettingFieldAndButton(embed, component, "Model", userSetting.Model, 1);
+            }
+            else
+            {
+                embed.WithDescription("Keine Einstellungen gesetzt.");
+            }
+
+            await command.RespondAsync(embed: embed.Build(), components: component.Build(), ephemeral: true);
+        }
+
+        private async Task<UserAiSettings?> LoadSettings(ulong userId)
+        {
+            lock(UserSettings)
+            {
+                if(UserSettings.TryGetValue(userId, out UserAiSettings? settings))
+                {
+                    TimeSpan? timeSinceLastLoad = DateTime.Now - settings.LoadedDateTime;
+                    if(timeSinceLastLoad is { TotalHours: < 2 })
+                    {
+                        return settings;
+                    }
+                }
+            }
+
             MySqlParameter[] param =
             [
                 new MySqlParameter("p_userID", userId)
@@ -138,41 +169,49 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             DataTable userSetting = _databaseService.ExecuteStoredProcedure("GetUserAISettings", param);
 
             // Überprüfe, ob Daten vorhanden sind
-            if (userSetting.Rows.Count == 0)
-            {
+            if(userSetting.Rows.Count == 0)
                 return null;
-            }
 
             DataRow row = userSetting.Rows[0];
+
             UserAiSettings result = new()
             {
                 // Annahme: "UserID" ist immer vorhanden und nicht NULL
-                UserId = (long)row["UserID"],
+                UserId = Convert.ToUInt64(row["UserID"]),
 
-                Lora1 = row["lora1"] != DBNull.Value ? (BildConfigEnums.LoraStack)(uint)row["lora1"] : null,
-                Strength1 = row["strength1"] != DBNull.Value ? (double)row["strength1"] : null,
-                Lora2 = row["lora2"] != DBNull.Value ? (BildConfigEnums.LoraStack)(uint)row["lora2"] : null,
-                Strength2 = row["strength2"] != DBNull.Value ? (double)row["strength2"] : null,
-                Lora3 = row["lora3"] != DBNull.Value ? (BildConfigEnums.LoraStack)(uint)row["lora3"] : null,
-                Strength3 = row["strength3"] != DBNull.Value ? (double)row["strength3"] : null,
-                Lora4 = row["lora4"] != DBNull.Value ? (BildConfigEnums.LoraStack)(uint)row["lora4"] : null,
-                Strength4 = row["strength4"] != DBNull.Value ? (double)row["strength4"] : null,
-                Lora5 = row["lora5"] != DBNull.Value ? (BildConfigEnums.LoraStack)(uint)row["lora5"] : null,
-                Strength5 = row["strength5"] != DBNull.Value ? (double)row["strength5"] : null,
-                Model = row["model"] != DBNull.Value ? (BildConfigEnums.Modelle)(uint)row["model"] : null,
-                Cfg = row["cfg"] != DBNull.Value ? (double)row["cfg"] : null,
-                
+                Lora1 = row["lora1"] is not DBNull ? (BildConfigEnums.LoraStack)Convert.ToUInt32(row["lora1"]) : null,
+                Strength1 = row["strength1"] is not DBNull ? Convert.ToDouble(row["strength1"]) : null,
+
+                Lora2 = row["lora2"] is not DBNull ? (BildConfigEnums.LoraStack)Convert.ToUInt32(row["lora2"]) : null,
+                Strength2 = row["strength2"] is not DBNull ? Convert.ToDouble(row["strength2"]) : null,
+
+                Lora3 = row["lora3"] is not DBNull ? (BildConfigEnums.LoraStack)Convert.ToUInt32(row["lora3"]) : null,
+                Strength3 = row["strength3"] is not DBNull ? Convert.ToDouble(row["strength3"]) : null,
+
+                Lora4 = row["lora4"] is not DBNull ? (BildConfigEnums.LoraStack)Convert.ToUInt32(row["lora4"]) : null,
+                Strength4 = row["strength4"] is not DBNull ? Convert.ToDouble(row["strength4"]) : null,
+
+                Lora5 = row["lora5"] is not DBNull ? (BildConfigEnums.LoraStack)Convert.ToUInt32(row["lora5"]) : null,
+                Strength5 = row["strength5"] is not DBNull ? Convert.ToDouble(row["strength5"]) : null,
+
+                Model = row["model"] is not DBNull ? (BildConfigEnums.Modelle)Convert.ToUInt32(row["model"]) : null,
+                Cfg = row["cfg"] is not DBNull ? Convert.ToDouble(row["cfg"]) : null,
+                LoadedDateTime = DateTime.Now
             };
-
+            lock(UserSettings)
+            {
+                UserSettings[userId] = result;
+            }
             return result;
         }
 
-        private async Task GenerateAIPicture(SocketSlashCommand command)
+        private Task GenerateAiPicture(SocketSlashCommand command)
         {
             ModalBuilder modalBuilder = new();
 
             modalBuilder.WithTitle("AI Bild Erstellung");
 
+            return Task.CompletedTask;
         }
 
         public async Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
@@ -182,12 +221,12 @@ namespace KaffeBot.Discord.grundfunktionen.KI
                                                              .WithName("generate_picture")
                                                              .WithDescription("Generiert ein KI Bild (Achtung Service ist nicht immer verfügbar)")
                                                              .Build());
-            
+
             await client.CreateGlobalApplicationCommandAsync(new SlashCommandBuilder()
                                                              .WithName("setting_aigenrating")
                                                              .WithDescription("Einstellungen zur Bilder Herstellung, Wie lora und model")
                                                              .Build());
-            
+
             await RegisterModul(nameof(ComfyUiGenerating));
         }
 
@@ -244,6 +283,156 @@ namespace KaffeBot.Discord.grundfunktionen.KI
                 _databaseService.ExecuteSqlQuery(insert, parameter);
                 System.Console.WriteLine($"Modul {modulename} der DB hinzugefügt");
             }
+            return Task.CompletedTask;
+        }
+
+        public Task HandleButtonAsync(SocketMessageComponent component)
+        {
+            string customID = component.Data.CustomId;
+
+            string[] parts = customID.Split('_');
+            string buttonType = $"{parts[0]}_{parts[1]}";
+
+            switch(buttonType)
+            {
+                case "change_lora":
+                    _ = SelectKategorieAsync(component, customID);
+                    break;
+
+                case "change_loraModel":
+                    _ = SettingAi(component);
+                    break;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private static async Task SelectKategorieAsync(SocketMessageComponent component, string customID)
+        {
+            SelectMenuBuilder selectMenuBuilder = new();
+            string[] parts = customID.Split("_");
+            selectMenuBuilder.WithPlaceholder($"Bitte wähle die Kategorie aus für {parts[1]} nummer {parts[2]}")
+                             .WithCustomId($"selected_cat_{parts[2]}");
+
+            Dictionary<string, List<string>> loraStackCategories = EnumExtensions.GetEnumsGroupedByCategory<BildConfigEnums.LoraStack>();
+
+            foreach(KeyValuePair<string, List<string>> dataCategory in loraStackCategories)
+            {
+                selectMenuBuilder.AddOption(dataCategory.Key, dataCategory.Key);
+            }
+
+            ComponentBuilder? builder = new ComponentBuilder()
+            .WithSelectMenu(selectMenuBuilder);
+
+            await component.RespondAsync($"Wähle eine Kategorie für {parts[1]} Nummer {parts[2]}", components: builder.Build(), ephemeral: true);
+        }
+
+        Task IButtonModule.RegisterButtonAsync(ButtonCommandHandler commandHandler)
+        {
+            for(int i = 1; i <= 5; i++)
+            {
+                commandHandler.RegisterButtonModul($"change_lora_{i}", this);
+                commandHandler.RegisterButtonModul($"change_loraModel_{i}", this);
+            }
+
+            commandHandler.RegisterButtonModul("change_model_1", this);
+
+            return Task.CompletedTask;
+        }
+
+        public Task HandleMenuSelectionAsync(SocketMessageComponent component)
+        {
+            string[] part = component.Data.CustomId.Split("_");
+
+            _ = $"{part[0]}_{part[1]}" switch
+            {
+                "selected_cat" => GenerateCatSelectionAsync(component),
+                "change_loraModel" => SetLoraModel(component, component.Data.CustomId)
+            };
+            return Task.CompletedTask;
+        }
+
+        private async Task SetLoraModel(SocketMessageComponent component, string LoraModelString)
+        {
+            string[] parts = LoraModelString.Split("_");
+            int loraNumber = int.Parse(parts[2]);
+            ulong userId = component.User.Id;
+            LoraStack selectedLoraModel = Enum.Parse<LoraStack>(component.Data.Values.First());
+
+            lock(UserSettings)
+            {
+                if(!UserSettings.TryGetValue(userId, out UserAiSettings? userSettings))
+                {
+                    component.DeferAsync(true);
+                    component.FollowupAsync("Fehler in der Verarbeitung");
+                    return;
+                }
+                else
+                {
+                    switch(loraNumber)
+                    {
+                        case 1:
+                            userSettings.Lora1 = selectedLoraModel;
+                            break;
+
+                        case 2:
+                            userSettings.Lora2 = selectedLoraModel;
+                            break;
+
+                        case 3:
+                            userSettings.Lora3 = selectedLoraModel;
+                            break;
+
+                        case 4:
+                            userSettings.Lora4 = selectedLoraModel;
+                            break;
+
+                        case 5:
+                            userSettings.Lora5 = selectedLoraModel;
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+            }
+            _ = SettingAi(component);
+        }
+
+        private static async Task GenerateCatSelectionAsync(SocketMessageComponent component)
+        {
+            await component.DeferAsync(ephemeral: true);
+
+            Dictionary<string, List<string>> loras = EnumExtensions.GetEnumsGroupedByCategory<LoraStack>();
+            SelectMenuBuilder selectMenuBuilder = new();
+
+            string[] parts = component.Data.CustomId.Split("_");
+
+            // Ausgabe aller getroffenen Auswahlmöglichkeiten
+            foreach(string? selectedValue in component.Data.Values)
+            {
+                selectMenuBuilder.WithPlaceholder($"Bitte wähle nun das Lora Modell das du verwenden möchtest.")
+                                 .WithCustomId($"change_loraModel_{parts[2]}");
+
+                foreach(string lorModel in loras[selectedValue])
+                {
+                    LoraStack LoraValue = (LoraStack)Enum.Parse(typeof(LoraStack), lorModel);
+                    string? desc = LoraValue.GetAiDesc();
+                    selectMenuBuilder.AddOption(lorModel, LoraValue.ToString(), desc);
+                }
+            }
+
+            ComponentBuilder? builder = new ComponentBuilder()
+            .WithSelectMenu(selectMenuBuilder);
+
+            await component.FollowupAsync("Wähle das Lora Model was du Benutzen willst", components: builder.Build(), ephemeral: true);
+        }
+
+        public Task RegisterSelectionHandlerAsync(MenuSelectionHandler commandHandler)
+        {
+            commandHandler.RegisterSelectionModul("selected_cat", this);
+            commandHandler.RegisterSelectionModul("change_loraModel", this);
+
             return Task.CompletedTask;
         }
     }

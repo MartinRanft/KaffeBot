@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace KaffeBot.Interfaces.Discord
 {
-    public interface IBotModule
+    internal interface IBotModule
     {
         bool ShouldExecuteRegularly { get; set; }
 

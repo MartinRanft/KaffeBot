@@ -41,19 +41,24 @@ namespace KaffeBot.Services.Discord
             _client.GuildAvailable += CheckServerChannel;
             _client.JoinedGuild += OnGuildAvailableAsync; // Event-Handler für Server-Betreten
             SlashCommandHandler commandHandler = new(_client);
+            ButtonCommandHandler buttonCommandHandler = new(_client);
+            MenuSelectionHandler menuSelectionHandler = new(_client);
 
-            // Finden aller Typen, die IBotModule implementieren, und nicht abstrakt sind
-            IEnumerable<Type> moduleTypes = Assembly.GetExecutingAssembly()
-                                                    .GetTypes()
-                                                    .Where(t => typeof(IBotModule).IsAssignableFrom(t) && !t.IsAbstract);
-
-            // Instanziiere jedes gefundene Modul und füge es der _modules-Liste hinzu
-            foreach(Type type in moduleTypes)
+            Task.Run(async () =>
             {
-                IBotModule module = (IBotModule)Activator.CreateInstance(type, _client, _databaseService)!;
-                _modules.Add(module);
-                module.RegisterCommandsAsync(commandHandler).GetAwaiter().GetResult();
-            }
+                // Für IBotModule
+                await LoadAndRegisterModules<IBotModule>(module =>
+                {
+                    _modules.Add(module);
+                    module.RegisterCommandsAsync(commandHandler).GetAwaiter().GetResult();
+                });
+
+                // Für IButtonModule
+                await LoadAndRegisterModules<IButtonModule>(button => { button.RegisterButtonAsync(buttonCommandHandler).GetAwaiter().GetResult(); });
+
+                // Für ICompounModule
+                await LoadAndRegisterModules<ICompounModule>(menuSelection => { menuSelection.RegisterSelectionHandlerAsync(menuSelectionHandler).GetAwaiter().GetResult(); });
+            });
 
             //DiscordBot = this;
         }
@@ -344,5 +349,22 @@ namespace KaffeBot.Services.Discord
                 await module.Execute(CancellationToken.None);
             }
         }
+        
+        private Task LoadAndRegisterModules<TInterface>(Action<TInterface> registerAction) where TInterface : class
+        {
+            // Finde alle Typen, die das gegebene Interface implementieren, und nicht abstrakt sind
+            IEnumerable<Type> moduleTypes = Assembly.GetExecutingAssembly()
+                                                    .GetTypes()
+                                                    .Where(t => typeof(TInterface).IsAssignableFrom(t) && !t.IsAbstract);
+
+            // Instanziiere jedes gefundene Modul und führe die übergebene Aktion darauf aus
+            foreach (Type type in moduleTypes)
+            {
+                TInterface moduleInstance = (TInterface)Activator.CreateInstance(type, _client, _databaseService)!;
+                registerAction(moduleInstance);
+            }
+            return Task.CompletedTask;
+        }
+
     }
 }

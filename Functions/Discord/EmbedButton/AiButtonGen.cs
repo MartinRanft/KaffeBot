@@ -16,7 +16,7 @@ namespace KaffeBot.Functions.Discord.EmbedButton
         /// <param name="component"></param>
         /// <param name="fieldName"></param>
         /// <param name="loraSetting"></param>
-        /// <param name="loraNumber"></param>
+        /// <param name="modelNumber"></param>
         internal static void AddSettingFieldAndButton(EmbedBuilder embed, ComponentBuilder component, string fieldName, BildConfigEnums.LoraStack? loraSetting, int loraNumber)
         {
             string settingValue = loraSetting.HasValue ? loraSetting.Value.ToString() : "Nicht gesetzt";
@@ -33,14 +33,14 @@ namespace KaffeBot.Functions.Discord.EmbedButton
         /// <param name="component"></param>
         /// <param name="fieldName"></param>
         /// <param name="model"></param>
-        /// <param name="loraNumber"></param>
-        internal static void AddSettingFieldAndButton(EmbedBuilder embed, ComponentBuilder component, string fieldName, BildConfigEnums.Modelle? model, int loraNumber)
+        /// <param name="modelNumber"></param>
+        internal static void AddSettingFieldAndButton(EmbedBuilder embed, ComponentBuilder component, string fieldName, BildConfigEnums.Modelle? model, int modelNumber)
         {
             string settingValue = model.HasValue ? model.Value.ToString() : "Nicht gesetzt";
             embed.AddField(fieldName, settingValue, true);
 
             // Erstelle einen Button für jede Lora-Einstellung mit einer eindeutigen CustomId
-            component.WithButton($"Ändere {fieldName}", $"change_model_{loraNumber}", ButtonStyle.Secondary);
+            component.WithButton($"Ändere {fieldName}", $"change_model_{modelNumber}", ButtonStyle.Secondary);
         }
     }
 }
