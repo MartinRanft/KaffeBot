@@ -4,6 +4,7 @@ using System.Reflection;
 using Discord;
 using Discord.WebSocket;
 
+using KaffeBot.Interfaces;
 using KaffeBot.Interfaces.DB;
 using KaffeBot.Interfaces.Discord;
 using KaffeBot.Services.Discord.Module;
@@ -43,6 +44,7 @@ namespace KaffeBot.Services.Discord
             SlashCommandHandler commandHandler = new(_client);
             ButtonCommandHandler buttonCommandHandler = new(_client);
             MenuSelectionHandler menuSelectionHandler = new(_client);
+            ModularHandler modularHandler = new(_client);
 
             Task.Run(async () =>
             {
@@ -58,6 +60,9 @@ namespace KaffeBot.Services.Discord
 
                 // Für ICompounModule
                 await LoadAndRegisterModules<ICompounModule>(menuSelection => { menuSelection.RegisterSelectionHandlerAsync(menuSelectionHandler).GetAwaiter().GetResult(); });
+
+                // Für Modula anfragen
+                await LoadAndRegisterModules<IInputModul>(inputModul => { inputModul.RegisterModularHandlerAsync(modularHandler).GetAwaiter().GetResult(); });
             });
 
             //DiscordBot = this;
