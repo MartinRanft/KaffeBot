@@ -9,12 +9,12 @@ namespace KaffeBot.Models.KI.Enums
     /// <summary>
     /// Auswahl zur Anfertigung von Bildern
     /// </summary>
-    internal abstract class BildConfigEnums
+    public abstract class BildConfigEnums
     {
         /// <summary>
         /// Auswahl für das Modell
         /// </summary>
-        internal enum Modelle
+        public enum Modelle
         {
             /// <summary>
             /// Unbekanntes Model
@@ -146,7 +146,7 @@ namespace KaffeBot.Models.KI.Enums
         /// <summary>
         /// Lora auswahl
         /// </summary>
-        internal enum LoraStack
+        public enum LoraStack
         {
             /// <summary>
             /// Anime Hellsing Char Alucard, Seras, Integra

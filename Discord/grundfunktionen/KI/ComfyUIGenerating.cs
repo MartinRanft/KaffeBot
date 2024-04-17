@@ -2,6 +2,7 @@
 using System.Data;
 using System.Globalization;
 using System.Reflection;
+using System.Text;
 using System.Threading.Channels;
 
 using Discord;
@@ -20,7 +21,10 @@ using Microsoft.Extensions.Configuration;
 
 using MySqlConnector;
 
+using Newtonsoft.Json;
+
 using static KaffeBot.Models.KI.Enums.BildConfigEnums;
+using System.Linq;
 
 namespace KaffeBot.Discord.grundfunktionen.KI
 {
@@ -28,7 +32,6 @@ namespace KaffeBot.Discord.grundfunktionen.KI
     {
         private readonly IDatabaseService _databaseService = databaseService;
         private readonly DiscordSocketClient _client = client;
-        private Task _;
 
         private static ConcurrentDictionary<ulong, UserAiSettings> UserSettings { get; set; } = [];
 
@@ -239,13 +242,51 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             return result;
         }
 
-        private static Task GenerateAiPicture(SocketSlashCommand command)
+        private async Task GenerateAiPicture(SocketSlashCommand command)
         {
-            ModalBuilder modalBuilder = new();
+            // Extrahiere die Werte aus den Optionen
+            string? positiveInput = (string)command.Data.Options.FirstOrDefault(o => o.Name == "positive")?.Value!;
+            string? negativeInput = (string)command.Data.Options.FirstOrDefault(o => o.Name == "negative")?.Value!;
+            UserAiSettings setting = LoadSettings(command.User.Id)!;
 
-            modalBuilder.WithTitle("AI Bild Erstellung");
+            ImagesSettings question = new()
+            {
+                UserAiSettings = setting,
+                PositivePrompt = positiveInput,
+                NegativePrompt = negativeInput,
+            };
 
-            return Task.CompletedTask;
+            await command.DeferAsync(ephemeral: false);
+
+            HttpClient httpClient = new();
+
+            string apiUrl = "https://api.bytewizards.de/api/bildgen/GeneratePic";
+
+            string jsonData = JsonConvert.SerializeObject(question);
+            HttpContent content = new StringContent(jsonData, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await httpClient.PostAsync(apiUrl, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+
+                List<string>? base64Images = JsonConvert.DeserializeObject<List<string>>(await response.Content.ReadAsStringAsync());
+                
+                foreach(FileAttachment fileAttachment in from string base64Image in base64Images!
+                                              let imageData = Convert.FromBase64String(base64Image)
+                                              let stream = new MemoryStream(imageData)
+                                              let fileAttachment = new FileAttachment(stream, "generated_image.png")
+                                              select fileAttachment)
+                {
+                    await command.FollowupWithFileAsync(fileAttachment, "Here is your generated image:");
+                }
+            }
+            else
+            {
+                // Handle the case where the API call failed
+                await command.FollowupAsync("Failed to generate image. Please try again later.");
+            }
+
         }
 
         public async Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
@@ -254,6 +295,8 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             await client.CreateGlobalApplicationCommandAsync(new SlashCommandBuilder()
                                                              .WithName("generate_picture")
                                                              .WithDescription("Generiert ein KI Bild (Achtung Service ist nicht immer verfügbar)")
+                                                             .AddOption("positive", ApplicationCommandOptionType.String, "Positive Attribute, die das Bild beeinflussen sollen", isRequired: true)
+                                                             .AddOption("negative", ApplicationCommandOptionType.String, "Negative Attribute, die das Bild beeinflussen sollen", isRequired: true)
                                                              .Build());
 
             await client.CreateGlobalApplicationCommandAsync(new SlashCommandBuilder()
@@ -330,15 +373,15 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             object? __ = buttonType switch
             {
                 "change_lora" => SelectKategorieAsync(component, customId),
-                "change_model" => SelectAiModel(component, customId),
+                "change_model" => SelectAiModel(component),
                 "change_loraModel" => SettingAi(component),
-                _ => _
+                _ => ""
             };
 
             return Task.CompletedTask;
         }
 
-        private Task SelectAiModel(SocketMessageComponent component, string customId)
+        private static Task SelectAiModel(SocketMessageComponent component)
         {
             SelectMenuBuilder selectMenuBuilder = new();
 
@@ -365,8 +408,6 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             // Senden der Nachricht mit dem Auswahlmenü
             return component.RespondAsync("Bitte wähle das Model, das du verwenden möchtest", components: componentBuilder.Build(), ephemeral: true);
         }
-
-
 
         private static async Task SelectKategorieAsync(SocketMessageComponent component, string customID)
         {
@@ -416,12 +457,12 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             return Task.CompletedTask;
         }
 
-        private async Task UserLoraStrng(SocketMessageComponent component)
+        private Task UserLoraStrng(SocketMessageComponent component)
         {
             ulong userID = component.User.Id;
             string customId = component.Data.CustomId;
             string[] part = customId.Split("_");
-            int.TryParse(part[2], out int loraNumber);
+            _ = int.TryParse(part[2], out int loraNumber);
             double.TryParse(component.Data.Values.First(), NumberStyles.Any, CultureInfo.InvariantCulture, out double loraStr);
 
             lock (UserSettings)
@@ -430,7 +471,7 @@ namespace KaffeBot.Discord.grundfunktionen.KI
                 {
                     component.DeferAsync(true);
                     component.FollowupAsync("Fehler in der Verarbeitung", ephemeral: true);
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 switch (loraNumber)
@@ -459,9 +500,10 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             }
 
             _ = SettingAi(component);
+            return Task.CompletedTask;
         }
 
-        private async Task SetModel(SocketMessageComponent component)
+        private Task SetModel(SocketMessageComponent component)
         {
             Modelle selectedAiModel = Enum.Parse<Modelle>(component.Data.Values.First());
 
@@ -471,7 +513,7 @@ namespace KaffeBot.Discord.grundfunktionen.KI
                 {
                     component.DeferAsync(true);
                     component.FollowupAsync("Fehler in der Verarbeitung", ephemeral: true);
-                    return;
+                    return Task.CompletedTask;
                 }
                 else
                 {
@@ -480,10 +522,10 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             }
 
             _ = SettingAi(component);
-
+            return Task.CompletedTask;
         }
 
-        private Task SetLoraModel(SocketMessageComponent component, string LoraModelString)
+        private static Task SetLoraModel(SocketMessageComponent component, string LoraModelString)
         {
             string[] parts = LoraModelString.Split("_");
             int loraNumber = int.Parse(parts[2]);
@@ -532,7 +574,7 @@ namespace KaffeBot.Discord.grundfunktionen.KI
             return Task.CompletedTask;
         }
 
-        private async Task SetLoraStrength(SocketMessageComponent component, int loraNumber)
+        private static async Task SetLoraStrength(SocketMessageComponent component, int loraNumber)
         {
             await component.DeferAsync(true);
 
