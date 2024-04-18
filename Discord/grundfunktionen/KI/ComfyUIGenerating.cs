@@ -269,15 +269,13 @@ namespace KaffeBot.Discord.grundfunktionen.KI
 
             if (response.IsSuccessStatusCode)
             {
-
                 List<string>? base64Images = JsonConvert.DeserializeObject<List<string>>(await response.Content.ReadAsStringAsync());
-                
-                foreach(FileAttachment fileAttachment in from string base64Image in base64Images!
-                                              let imageData = Convert.FromBase64String(base64Image)
-                                              let stream = new MemoryStream(imageData)
-                                              let fileAttachment = new FileAttachment(stream, "generated_image.png")
-                                              select fileAttachment)
+                HashSet<string> uniqueImages = [..base64Images];
+
+                foreach(byte[] imageData in uniqueImages.Select(base64Image => Convert.FromBase64String(base64Image)))
                 {
+                    using MemoryStream stream = new(imageData);
+                    FileAttachment fileAttachment = new(stream, "generated_image.png");
                     await command.FollowupWithFileAsync(fileAttachment, "Here is your generated image:");
                 }
             }
