@@ -140,7 +140,14 @@ namespace KaffeBot.Models.KI.Enums
             /// </summary>
             [Description("Normal\\sd-v1-4.ckpt")]
             [AiAttribut("Normales standart Model")]
-            SdV14
+            SdV14,
+            
+            /// <summary>
+            /// Model für NSFW Realistig
+            /// </summary>
+            [Description("Normal\\ponyRealism_v10.safetensors")]
+            [AiAttribut("Model für NSFW Realistig")]
+            PonyRealism
         }
 
         /// <summary>
