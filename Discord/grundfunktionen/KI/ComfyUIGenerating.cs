@@ -74,6 +74,28 @@ namespace KaffeBot.Discord.grundfunktionen.KI
 
             foreach (ulong userId in keysToRemove)
             {
+                //suchen der User die gelöscht werden sollen aus dem speicher mit Ihren einstellungen.
+                if(UserSettings.TryGetValue(userId, out UserAiSettings? userAiSettings))
+                {
+                    MySqlParameter[] parameters =
+                    [
+                        new MySqlParameter("@_UserID", userAiSettings.UserId),
+                        new MySqlParameter("@_lora1", userAiSettings.Lora1),
+                        new MySqlParameter("@_strength1", userAiSettings.Strength1),
+                        new MySqlParameter("@_lora2", userAiSettings.Lora2),
+                        new MySqlParameter("@_strength2", userAiSettings.Strength2),
+                        new MySqlParameter("@_lora3", userAiSettings.Lora3),
+                        new MySqlParameter("@_strength3", userAiSettings.Strength3),
+                        new MySqlParameter("@_lora4", userAiSettings.Lora4),
+                        new MySqlParameter("@_strength4", userAiSettings.Strength4),
+                        new MySqlParameter("@_lora5", userAiSettings.Lora5),
+                        new MySqlParameter("@_strength5", userAiSettings.Strength5),
+                        new MySqlParameter("@_model", userAiSettings.Model),
+                        new MySqlParameter("@_cfg", userAiSettings.Cfg)
+                    ];
+
+                    _databaseService.ExecuteStoredProcedure("UpdateUserAISettings", parameters);
+                }
                 // Diese Variable wird nicht verwendet, aber TryRemove erfordert sie.
                 UserSettings.TryRemove(userId, out UserAiSettings? removedValue);
             }
