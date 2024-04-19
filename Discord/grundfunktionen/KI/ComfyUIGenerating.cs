@@ -298,7 +298,17 @@ namespace KaffeBot.Discord.grundfunktionen.KI
                 {
                     using MemoryStream stream = new(imageData);
                     FileAttachment fileAttachment = new(stream, "generated_image.png");
-                    await command.FollowupWithFileAsync(fileAttachment, "Here is your generated image:");
+
+                    EmbedBuilder builder = new EmbedBuilder()
+                    .WithTitle("Generated Image")
+                    .WithImageUrl("attachment://generated_image.png");
+
+                    builder.AddField("Positive Prompt", $"{positiveInput}", true);
+                    builder.AddField("Negative Prompt", $"{negativeInput}", true);
+                    builder.AddField("Model Used:", $"{setting.Model.ToString()}", true);
+                    
+
+                    await command.FollowupWithFileAsync(fileAttachment, embed: builder.Build());
                 }
             }
             else
