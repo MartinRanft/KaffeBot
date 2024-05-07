@@ -266,6 +266,14 @@ namespace KaffeBot.Discord.grundfunktionen.KI
 
         private async Task GenerateAiPicture(SocketSlashCommand command)
         {
+            List<ulong> serverList = [715296154212106411, 1175142792494841907, 483521710709014538];
+
+            if(!serverList.Contains(command.GuildId.Value))
+            {
+                await command.RespondAsync("Dieser Befehl ist auf diesem Server nicht verfügbar. Bitte wenden Sie sich an den Bot Owner für eine Freischaltung", ephemeral: true);
+                return;
+            }
+
             // Extrahiere die Werte aus den Optionen
             string? positiveInput = (string)command.Data.Options.FirstOrDefault(o => o.Name == "positive")?.Value!;
             string? negativeInput = (string)command.Data.Options.FirstOrDefault(o => o.Name == "negative")?.Value!;
