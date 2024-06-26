@@ -12,11 +12,19 @@ using Microsoft.Extensions.Hosting;
 
 namespace KaffeBot.Services.TCP
 {
+    /// <summary>
+    /// Represents a TCP server that listens for incoming connections on a specified port and handles client requests.
+    /// </summary>
     internal sealed class TcpServer(int port, X509Certificate certificate, IDatabaseService databaseService) : TCPServerBase, IHostedService
     {
         private readonly TcpListener _listener = new(IPAddress.Any, port);
         private CancellationToken _stoppingToken;
 
+        /// <summary>
+        /// Starts the TCP server asynchronously, listening for incoming connections and handling client requests.
+        /// </summary>
+        /// <param name="cancellationToken">A cancellation token that can be used to stop the server.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             _stoppingToken = cancellationToken;
@@ -42,6 +50,12 @@ namespace KaffeBot.Services.TCP
             }
         }
 
+        /// <summary>
+        /// Handles a client connection, performing authentication and processing client requests.
+        /// </summary>
+        /// <param name="client">The TCP client representing the connected client.</param>
+        /// <param name="stoppingToken">A cancellation token that can be used to stop the processing of the client.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         private async Task HandleClient(TcpClient client, CancellationToken stoppingToken)
         {
             int messageCount = 0;
@@ -119,6 +133,11 @@ namespace KaffeBot.Services.TCP
             }
         }
 
+        /// <summary>
+        /// Stops the TCP server asynchronously, shutting down the listener and ending the server operation.
+        /// </summary>
+        /// <param name="cancellationToken">A cancellation token that can be used to stop the server.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public Task StopAsync(CancellationToken cancellationToken)
         {
             Console.WriteLine("TCP Server wird heruntergefahren.");
@@ -126,6 +145,10 @@ namespace KaffeBot.Services.TCP
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Updates the count of failed attempts for a client IP address.
+        /// </summary>
+        /// <param name="clientIP">The IP address of the client.</param>
         private static void UpdateFailedAttempts(IPAddress clientIP)
         {
             lock(FailedAttempts)

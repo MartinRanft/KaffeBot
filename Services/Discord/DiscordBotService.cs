@@ -18,6 +18,9 @@ using Timer = System.Timers.Timer;
 
 namespace KaffeBot.Services.Discord
 {
+    /// <summary>
+    /// The DiscordBotService class is responsible for managing the Discord bot and its functionalities.
+    /// </summary>
     internal sealed class DiscordBotService : BackgroundService
     {
         private readonly DiscordSocketClient _client;
@@ -27,6 +30,9 @@ namespace KaffeBot.Services.Discord
         private bool _isReady;
         private Timer? _timer;
 
+        /// <summary>
+        /// Represents a Discord bot service.
+        /// </summary>
         public DiscordBotService(IConfiguration configuration, IDatabaseService databaseService)
         {
             DiscordSocketConfig clientConfig = new()
@@ -70,6 +76,11 @@ namespace KaffeBot.Services.Discord
 
         //private DiscordBotService DiscordBot { get; }
 
+        /// <summary>
+        /// Checks if the server channel exists in the database and adds it if it does not.
+        /// </summary>
+        /// <param name="guild">The Discord guild to check the channels for.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         private Task CheckServerChannel(SocketGuild guild)
         {
             MySqlParameter outParameter = new()
@@ -140,6 +151,11 @@ namespace KaffeBot.Services.Discord
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Handles the event when the bot joins a guild and becomes available in that guild.
+        /// </summary>
+        /// <param name="guild">The guild where the bot is available.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         private async Task OnGuildAvailableAsync(SocketGuild guild)
         {
             if(_isReady)
@@ -154,6 +170,10 @@ namespace KaffeBot.Services.Discord
             }
         }
 
+        /// <summary>
+        /// Called when the Discord client is ready to start receiving events.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.</returns>
         private async Task ClientReadyAsync()
         {
             _isReady = true;
@@ -235,6 +255,9 @@ namespace KaffeBot.Services.Discord
             await Task.WhenAll(moduleTasks);
         }
 
+        /// <summary>
+        /// Initializes the timer for regular execution of modules.
+        /// </summary>
         private void InitializeTimer()
         {
             _timer = new Timer(60000); // Setzt den Timer auf 60 Sekunden
@@ -243,6 +266,12 @@ namespace KaffeBot.Services.Discord
             _timer.Enabled = true;
         }
 
+        /// <summary>
+        /// Executes the logic for regularly executing modules.
+        /// </summary>
+        /// <returns>
+        /// The task representing the asynchronous operation.
+        /// </returns>
         private async Task OnTimerTickAsync()
         {
             // Logik für das regelmäßige Ausführen von Modulen
@@ -252,6 +281,11 @@ namespace KaffeBot.Services.Discord
             }
         }
 
+        /// <summary>
+        /// Executes the Discord bot service asynchronously.
+        /// </summary>
+        /// <param name="stoppingToken">The cancellation token that can be used to stop the execution of the service.</param>
+        /// <returns>A task representing the asynchronous execution of the service.</returns>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             stoppingToken.ThrowIfCancellationRequested();
@@ -272,12 +306,22 @@ namespace KaffeBot.Services.Discord
             await Task.Delay(Timeout.Infinite, stoppingToken);
         }
 
+        /// <summary>
+        /// Writes the log message to the console.
+        /// </summary>
+        /// <param name="log">The log message to be logged.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         private static Task LogAsync(LogMessage log)
         {
             Console.WriteLine(log.ToString());
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Stops the Discord bot service asynchronously.
+        /// </summary>
+        /// <param name="stoppingToken">The cancellation token that can be used to stop the execution of the service.</param>
+        /// <returns>A task representing the asynchronous execution of the service.</returns>
         public override async Task StopAsync(CancellationToken stoppingToken)
         {
             _timer?.Stop(); // Stoppe den Timer
@@ -287,6 +331,12 @@ namespace KaffeBot.Services.Discord
             await base.StopAsync(stoppingToken);
         }
 
+        /// <summary>
+        /// Activates a module for a specific channel.
+        /// </summary>
+        /// <param name="moduleName">The name of the module to activate.</param>
+        /// <param name="channelId">The ID of the channel.</param>
+        /// <returns>A task representing the asynchronous activation of the module.</returns>
         private async Task ActivateModuleAsync(string moduleName, ulong channelId)
         {
             if(!_isReady)
@@ -301,6 +351,12 @@ namespace KaffeBot.Services.Discord
             }
         }
 
+        /// <summary>
+        /// Deactivates a module in the Discord bot service.
+        /// </summary>
+        /// <param name="moduleName">The name of the module to deactivate.</param>
+        /// <param name="channelID">The ID of the channel where the module needs to be deactivated.</param>
+        /// <returns>A task representing the asynchronous operation of deactivating the module.</returns>
         public async Task DeactivateModuleAsync(string moduleName, ulong channelID)
         {
             if(!_isReady)
@@ -315,6 +371,12 @@ namespace KaffeBot.Services.Discord
             }
         }
 
+        /// <summary>
+        /// Checks if a module is active for a specific channel.
+        /// </summary>
+        /// <param name="moduleName">The name of the module.</param>
+        /// <param name="channelId">The ID of the channel.</param>
+        /// <returns>True if the module is active for the specified channel; otherwise, false.</returns>
         public bool IsModuleActive(string moduleName, ulong channelId)
         {
             if(!_isReady)
@@ -341,6 +403,11 @@ namespace KaffeBot.Services.Discord
             await module.InitializeAsync(_client, _configuration);
         }
 
+        /// <summary>
+        /// Executes a module with the specified name.
+        /// </summary>
+        /// <param name="moduleName">The name of the module to trigger.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
         public async Task TriggerModuleAsync(string moduleName)
         {
             if(!_isReady)
@@ -354,7 +421,13 @@ namespace KaffeBot.Services.Discord
                 await module.Execute(CancellationToken.None);
             }
         }
-        
+
+        /// <summary>
+        /// Loads and registers modules that implement the specified interface.
+        /// </summary>
+        /// <typeparam name="TInterface">The interface type.</typeparam>
+        /// <param name="registerAction">The action to be performed on each module instance.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         private Task LoadAndRegisterModules<TInterface>(Action<TInterface> registerAction) where TInterface : class
         {
             // Finde alle Typen, die das gegebene Interface implementieren, und nicht abstrakt sind

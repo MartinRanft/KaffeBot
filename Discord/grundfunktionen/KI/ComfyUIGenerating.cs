@@ -28,6 +28,9 @@ using System.Linq;
 
 namespace KaffeBot.Discord.grundfunktionen.KI
 {
+    /// <summary>
+    /// Represents a class that handles the generation of a Comfy UI (User Interface).
+    /// </summary>
     public class ComfyUiGenerating(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule, IButtonModule, ICompounModule
     {
         private readonly IDatabaseService _databaseService = databaseService;

@@ -5,6 +5,9 @@ using System.Security.Cryptography;
 
 namespace KaffeBot.Services.TCP
 {
+    /// <summary>
+    /// Represents a base class for TCP server functionality.
+    /// </summary>
     internal class TCPServerBase
     {
         internal static readonly Dictionary<IPAddress, (int Attempts, DateTime LastAttempt)> FailedAttempts = [];
@@ -17,6 +20,12 @@ namespace KaffeBot.Services.TCP
                 IPAddress.Parse("127.0.0.1")
             ];
 
+        /// <summary>
+        /// Decrypts the given ciphertext using the specified shared key.
+        /// </summary>
+        /// <param name="receivedData">The ciphertext to decrypt.</param>
+        /// <param name="sharedKey">The shared key used for decryption.</param>
+        /// <returns>The decrypted plaintext.</returns>
         private static string Decrypt(byte[] receivedData, byte[] sharedKey)
         {
             using Aes aesAlg = Aes.Create();
@@ -37,6 +46,12 @@ namespace KaffeBot.Services.TCP
             return srDecrypt.ReadToEnd();
         }
 
+        /// <summary>
+        /// Encrypts the given message using the specified shared key.
+        /// </summary>
+        /// <param name="message">The message to encrypt.</param>
+        /// <param name="sharedKey">The shared key used for encryption.</param>
+        /// <returns>The encrypted ciphertext.</returns>
         private static byte[] Encrypt(string message, byte[] sharedKey)
         {
             using Aes aesAlg = Aes.Create();
@@ -57,6 +72,15 @@ namespace KaffeBot.Services.TCP
             return msEncrypt.ToArray();
         }
 
+        /// <summary>
+        /// Asynchronously retrieves the shared key used for encryption from the client.
+        /// </summary>
+        /// <param name="sslStream">The SslStream used for communication with the client.</param>
+        /// <param name="client">The TcpClient representing the client connection.</param>
+        /// <returns>
+        /// A task that represents the asynchronous operation. The task result contains the shared key
+        /// as a byte array if the key exchange was successful, null otherwise.
+        /// </returns>
         internal static async Task<byte[]?> GetSharedKeyAsync(SslStream sslStream, TcpClient client)
         {
             byte[] sharedKey;
@@ -94,6 +118,12 @@ namespace KaffeBot.Services.TCP
             return sharedKey;
         }
 
+        /// <summary>
+        /// Receives a message from the specified SSL stream using the provided shared key for decryption.
+        /// </summary>
+        /// <param name="stream">The SSL stream from which to receive the message.</param>
+        /// <param name="sharedKey">The shared key used for decryption.</param>
+        /// <returns>The received message.</returns>
         internal static async Task<string> ReceiveMessage(SslStream stream, byte[] sharedKey)
         {
             byte[] buffer = new byte[1024];
@@ -106,6 +136,13 @@ namespace KaffeBot.Services.TCP
             return decryptedMessage;
         }
 
+        /// <summary>
+        /// Sends a message over a TCP connection using the specified SSL stream and shared key.
+        /// </summary>
+        /// <param name="stream">The SSL stream to use for sending the message.</param>
+        /// <param name="sharedKey">The shared key used for encryption.</param>
+        /// <param name="message">The message to send.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         internal static async Task SendMessage(SslStream stream, byte[] sharedKey, string message)
         {
             byte[] dataToSend = Encrypt(message, sharedKey);

@@ -12,6 +12,9 @@ using MySqlConnector;
 
 namespace KaffeBot.Discord.grundfunktionen.Server
 {
+    /// <summary>
+    /// Represents a module that manages the server list functionality.
+    /// </summary>
     public class ServerListModule(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
         private readonly DiscordSocketClient _client = client;

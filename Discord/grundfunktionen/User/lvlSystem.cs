@@ -16,6 +16,9 @@ using MySqlConnector;
 
 namespace KaffeBot.Discord.grundfunktionen.User
 {
+    /// <summary>
+    /// Represents a module for the level system functionality in a Discord bot.
+    /// </summary>
     internal partial class LvlSystem(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
         private readonly DiscordSocketClient _client = client;

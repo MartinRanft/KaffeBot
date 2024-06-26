@@ -18,6 +18,9 @@ using Newtonsoft.Json;
 
 namespace KaffeBot.Discord.BotOwner
 {
+    /// <summary>
+    /// Represents a class for handling AI picture to channel functionality.
+    /// </summary>
     public class AiPicToChanel(DiscordSocketClient client, IDatabaseService databaseService) : InteractionModuleBase<SocketInteractionContext>, IBotModule
     {
         private readonly DiscordSocketClient _client = client;

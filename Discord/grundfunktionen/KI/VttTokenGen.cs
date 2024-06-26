@@ -20,6 +20,9 @@ using Newtonsoft.Json;
 
 namespace KaffeBot.Discord.grundfunktionen.KI
 {
+    /// <summary>
+    /// Represents a class for generating VTT tokens.
+    /// </summary>
     internal class VttTokenGen(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
         public bool ShouldExecuteRegularly { get; set; } = false;

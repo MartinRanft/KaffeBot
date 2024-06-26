@@ -14,6 +14,9 @@ using MySqlConnector;
 
 namespace KaffeBot.Discord.grundfunktionen.User
 {
+    /// <summary>
+    /// Represents a module for registration functionalities in a web interface.
+    /// </summary>
     public class WebInterfaceRegistrationModule(DiscordSocketClient client, IDatabaseService databaseService) : InteractionModuleBase<SocketInteractionContext>, IBotModule
     {
         private readonly DiscordSocketClient _client = client;
@@ -21,6 +24,12 @@ namespace KaffeBot.Discord.grundfunktionen.User
 
         public bool ShouldExecuteRegularly { get; set; } = false;
 
+        /// <summary>
+        /// Initializes the module asynchronously.
+        /// </summary>
+        /// <param name="client">The DiscordSocketClient instance.</param>
+        /// <param name="configuration">The IConfiguration instance.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
         public async Task InitializeAsync(DiscordSocketClient client, IConfiguration configuration)
         {
             // Registriere den Slash-Befehl
@@ -39,6 +48,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
             await RegisterModul(nameof(WebInterfaceRegistrationModule));
         }
 
+        /// <summary>
+        /// Executes the regular tasks for the module.
+        /// </summary>
+        /// <param name="stoppingToken">A cancellation token that can be used to stop the module execution.</param>
+        /// <returns>A Task representing the execution of the module's regular tasks.</returns>
         public Task Execute(CancellationToken stoppingToken)
         {
             // Führen Sie hier regelmäßige Aufgaben aus, wenn ShouldExecuteRegularly true ist
@@ -59,6 +73,12 @@ namespace KaffeBot.Discord.grundfunktionen.User
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Deactivates a module asynchronously for a specific channelId and moduleName.
+        /// </summary>
+        /// <param name="channelId">The ID of the channel.</param>
+        /// <param name="moduleName">The name of the module.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
         public Task DeactivateAsync(ulong channelId, string moduleName)
         {
             MySqlParameter[] isActivePara =
@@ -72,6 +92,12 @@ namespace KaffeBot.Discord.grundfunktionen.User
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Checks if a module is active for a specific channel.
+        /// </summary>
+        /// <param name="channelId">The ID of the channel.</param>
+        /// <param name="moduleName">The name of the module.</param>
+        /// <returns>True if the module is active, otherwise false.</returns>
         public bool IsActive(ulong channelId, string moduleNam)
         {
             MySqlParameter[] isActivePara =
@@ -91,6 +117,10 @@ namespace KaffeBot.Discord.grundfunktionen.User
             return (bool)rows.Rows[0]["isActive"];
         }
 
+        /// Registers a password for the web interface.
+        /// </summary>
+        /// <param name="command">The SocketSlashCommand instance.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
         [SlashCommand("reg_webinterface", "Registriert ein Passwort für das Webinterface.")]
         private async Task RegisterWebInterfacePasswordAsync(SocketSlashCommand command)
         {
@@ -143,6 +173,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
             }
         }
 
+        /// <summary>
+        /// Resets the password for the web interface asynchronously.
+        /// </summary>
+        /// <param name="command">The SocketSlashCommand instance representing the command.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
         private async Task ResetWebInterfacePasswordAsync(SocketSlashCommand command)
         {
             await command.DeferAsync(ephemeral: true);
@@ -189,6 +224,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
             }
         }
 
+        /// <summary>
+        /// Registers a module in the database.
+        /// </summary>
+        /// <param name="moduleName">The name of the module to register.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
         public async Task RegisterModul(string moduleName)
         {
             MySqlParameter[] parameters = [
@@ -230,6 +270,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
             }
         }
 
+        /// <summary>
+        /// Registers the commands asynchronously.
+        /// </summary>
+        /// <param name="commandHandler">The SlashCommandHandler instance.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
         public Task RegisterCommandsAsync(SlashCommandHandler commandHandler)
         {
             commandHandler.RegisterModule("reg_webinterface", this);
@@ -237,6 +282,11 @@ namespace KaffeBot.Discord.grundfunktionen.User
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Handles a command received from a SocketSlashCommand.
+        /// </summary>
+        /// <param name="command">The SocketSlashCommand instance.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
         public async Task HandleCommandAsync(SocketSlashCommand command)
         {
             await (command.Data.Name switch

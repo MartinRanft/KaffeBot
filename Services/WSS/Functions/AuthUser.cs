@@ -8,8 +8,26 @@ using MySqlConnector;
 
 namespace KaffeBot.Services.WSS.Functions
 {
+    /// <summary>
+    /// Authenticates a user based on a command model and a database service.
+    /// </summary>
+    /// <param name="Usercmd">The command model containing user information</param>
+    /// <param name="database">The database service used to execute queries</param>
+    /// <returns>
+    /// The authenticated user's UserModel if the authentication is successful,
+    /// otherwise null.
+    /// </returns>
     internal class AuthUser
     {
+        /// <summary>
+        /// Authenticates a user based on a command model and a database service.
+        /// </summary>
+        /// <param name="Usercmd">The command model containing user information</param>
+        /// <param name="database">The database service used to execute queries</param>
+        /// <returns>
+        /// The authenticated user's UserModel if the authentication is successful,
+        /// otherwise null.
+        /// </returns>
         public static UserModel? Authenticate(CommandModel Usercmd, IDatabaseService database)
         {
             string username;

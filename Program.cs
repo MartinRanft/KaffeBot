@@ -14,12 +14,21 @@ namespace KaffeBot
 {
     internal static class Program
     {
+        /// <summary>
+        /// The entry point for the application.
+        /// </summary>
+        /// <param name="args">The command line arguments.</param>
         public static async Task Main(string[] args)
         {
             IHost host = CreateHostBuilder(args).Build();
             await host.RunAsync();
         }
 
+        /// <summary>
+        /// Creates an instance of <see cref="IHostBuilder"/> with the specified command line arguments.
+        /// </summary>
+        /// <param name="args">The command line arguments.</param>
+        /// <returns>An instance of <see cref="IHostBuilder"/>.</returns>
         private static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration((hostingContext, config) =>
@@ -56,7 +65,11 @@ namespace KaffeBot
                     services.AddHostedService<TcpServer>(provider =>
                         new TcpServer(8080, certificate, provider.GetRequiredService<IDatabaseService>()));
                 });
-        
+
+        /// <summary>
+        /// Generates a self-signed X509 certificate.
+        /// </summary>
+        /// <returns>The generated X509 certificate.</returns>
         private static X509Certificate2 GenerateSelfSignedCertificate()
         {
             using RSA rsa = RSA.Create(2048);
@@ -71,6 +84,12 @@ namespace KaffeBot
             return new X509Certificate2(certificate.Export(X509ContentType.Pfx, "testpassword"), "testpassword", X509KeyStorageFlags.DefaultKeySet);
         }
 
+        /// <summary>
+        /// Loads X509 certificates from the specified directory path with the given password.
+        /// </summary>
+        /// <param name="directoryPath">The path of the directory containing the certificate files.</param>
+        /// <param name="password">The password used to access the certificates.</param>
+        /// <returns>The loaded <see cref="X509Certificate2"/> or null if no certificate could be loaded.</returns>
         public static X509Certificate2? LoadCertificates(string directoryPath, string password)
         {
             X509Certificate2? certificate = null;

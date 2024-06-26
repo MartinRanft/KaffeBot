@@ -15,6 +15,9 @@ using Newtonsoft.Json;
 
 namespace KaffeBot.Discord.grundfunktionen.Server
 {
+    /// <summary>
+    /// Represents a module for managing user lists in a Discord server.
+    /// </summary>
     public class UserListModule(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
         private readonly DiscordSocketClient _client = client;

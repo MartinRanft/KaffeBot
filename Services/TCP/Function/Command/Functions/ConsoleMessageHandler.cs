@@ -7,12 +7,20 @@ using KaffeBot.Discord.grundfunktionen.Console;
 
 namespace KaffeBot.Services.TCP.Function.Command.Functions
 {
+    /// <summary>
+    /// Handles sending console output to a web service and listening for new console messages from the web service.
+    /// </summary>
     internal sealed class ConsoleMessageHandler(SslStream stream, byte[] sharedKey, TcpClient client) : TCPServerBase
     {
         private readonly SslStream _stream = stream;
         private readonly byte[] _sharedKey = sharedKey;
         private readonly TcpClient _tcpClient = client;
 
+        /// <summary>
+        /// Sends console output to a web service and listens for new console messages from the web service.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public async Task SendConsole(CancellationToken cancellationToken)
         {
             string message = await ConsoleOutput.SendToWeb();
@@ -37,6 +45,11 @@ namespace KaffeBot.Services.TCP.Function.Command.Functions
             }
         }
 
+        /// <summary>
+        /// Sends console output to a web service and listens for new console messages from the web service.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         private async void EventConsoleToWeb(List<SocketMessage> socketMessages)
         {
             try

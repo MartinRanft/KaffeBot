@@ -12,6 +12,9 @@ using MySqlConnector;
 
 namespace KaffeBot.Discord.grundfunktionen.Console
 {
+    /// <summary>
+    /// Represents a class that redirects console output to a web client.
+    /// </summary>
     internal abstract class ConsoleToWeb(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
         private readonly IDatabaseService _databaseService = databaseService;

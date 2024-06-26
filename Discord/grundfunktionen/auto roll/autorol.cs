@@ -12,6 +12,9 @@ using MySqlConnector;
 
 namespace KaffeBot.Discord.grundfunktionen.auto_roll
 {
+    /// <summary>
+    /// This class represents the Autorol module of the KaffeBot.
+    /// </summary>
     internal class Autorol(DiscordSocketClient client, IDatabaseService databaseService) : IBotModule
     {
         private readonly DiscordSocketClient _client = client;

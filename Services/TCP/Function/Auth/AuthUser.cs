@@ -11,15 +11,30 @@ using Newtonsoft.Json;
 
 namespace KaffeBot.Services.TCP.Function.Auth
 {
+    /// <summary>
+    /// Represents an authentication service for users.
+    /// </summary>
     internal sealed class AuthUser
     {
         private readonly IDatabaseService _databaseService;
 
+        /// <summary>
+        /// Represents an authentication service for users.
+        /// </summary>
         internal AuthUser(IDatabaseService database)
         {
             _databaseService = database;
         }
 
+        /// <summary>
+        /// Authenticates a user based on the given message and shared key.
+        /// </summary>
+        /// <param name="message">The message received from the client.</param>
+        /// <param name="sharedKeyBase64">The shared key used for encryption.</param>
+        /// <returns>
+        /// Returns a Task of UserModel representing the authenticated user.
+        /// Returns null if authentication fails.
+        /// </returns>
         public Task<UserModel?>? Authenticate(string message, string sharedKeyBase64)
         {
             UserModel? User;
@@ -76,6 +91,13 @@ namespace KaffeBot.Services.TCP.Function.Auth
             return Task.FromResult(User)!;
         }
 
+        /// <summary>
+        /// Decrypts a given cipher text using the provided key and initialization vector (IV).
+        /// </summary>
+        /// <param name="cipherText">The cipher text to decrypt.</param>
+        /// <param name="Key">The key used for decryption.</param>
+        /// <param name="IV">The initialization vector used for decryption.</param>
+        /// <returns>The decrypted plain text.</returns>
         private static string Decrypt(byte[] cipherText, byte[] Key, byte[] IV)
         {
             using Aes aesAlg = Aes.Create();
